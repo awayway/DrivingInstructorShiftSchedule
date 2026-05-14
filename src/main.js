@@ -3,6 +3,7 @@ import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 const fileInput = document.getElementById('file-input');
 const btnImport = document.getElementById('btn-import');
 const personSelect = document.getElementById('person-select');
+const monthFilterFutureOnly = document.getElementById('month-filter-future-only');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
@@ -194,6 +195,23 @@ function collectMonths(personKey) {
   );
 }
 
+/** 瀏覽器本日所屬曆月（1-based month） */
+function currentCalendarYearMonth() {
+  const t = new Date();
+  return { year: t.getFullYear(), month: t.getMonth() + 1 };
+}
+
+/**
+ * @param {{ year: number, month: number }[]} months
+ */
+function applyFutureMonthFilter(months) {
+  if (!monthFilterFutureOnly || !monthFilterFutureOnly.checked) return months;
+  const { year: cy, month: cm } = currentCalendarYearMonth();
+  return months.filter(
+    ({ year, month }) => year > cy || (year === cy && month >= cm)
+  );
+}
+
 function monthLabel(y, m) {
   return `${y}年 ${m}月`;
 }
@@ -202,11 +220,22 @@ function renderCalendar() {
   calendarRoot.innerHTML = '';
   if (!parsed) return;
   const key = personSelect.value;
-  const months = collectMonths(key);
-  if (!months.length) {
+  const allMonths = collectMonths(key);
+  if (!allMonths.length) {
     const p = document.createElement('p');
     p.className = 'empty-cal';
     p.textContent = '此選項尚無排班資料。';
+    p.style.textAlign = 'center';
+    p.style.color = '#666';
+    calendarRoot.appendChild(p);
+    return;
+  }
+  const months = applyFutureMonthFilter(allMonths);
+  if (!months.length) {
+    const p = document.createElement('p');
+    p.className = 'empty-cal';
+    p.textContent =
+      '目前勾選「只顯示本月及未來月份」時沒有可顯示的月份；取消勾選即可檢視較早的排程。';
     p.style.textAlign = 'center';
     p.style.color = '#666';
     calendarRoot.appendChild(p);
@@ -292,5 +321,9 @@ fileInput.addEventListener('change', () => {
 
 personSelect.addEventListener('change', () => {
   fillLegend();
+  renderCalendar();
+});
+
+monthFilterFutureOnly.addEventListener('change', () => {
   renderCalendar();
 });
