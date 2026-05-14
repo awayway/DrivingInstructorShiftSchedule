@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build output：dist 納入版控，方便直接 push 給 GitHub Pages（先在本機 npm run build）
+# Build output：網站由 Vite 輸出至 docs/（納入版控，供 GitHub Pages 的 /docs 來源）；本機若曾建到 dist 則忽略
+dist/
 
 # Local env (secrets / machine-specific)
 .env

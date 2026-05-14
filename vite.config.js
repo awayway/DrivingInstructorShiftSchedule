@@ -7,5 +7,5 @@ export default defineConfig(({ command }) => ({
   base: command === 'serve' ? '/' : GH_PAGES_BASE,
   root: '.',
   server: { port: 5173, open: true },
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: { outDir: 'docs', emptyOutDir: true },
 }));
