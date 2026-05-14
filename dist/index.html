@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>駕訓班總排班表 · 個人月曆</title>
+    <script type="module" crossorigin src="/DrivingInstructorShiftSchedule/assets/index-Bvq0ZEsd.js"></script>
+    <link rel="stylesheet" crossorigin href="/DrivingInstructorShiftSchedule/assets/index-0hEP-aw6.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>總排班表 · 個人月曆</h1>
+      <p class="subtitle">檔案僅在瀏覽器解析，不會上傳至伺服器</p>
+      <div class="toolbar">
+        <input id="file-input" type="file" accept=".xlsx,.xls" hidden />
+        <button type="button" id="btn-import" class="btn-primary">匯入總排班表</button>
+        <label class="person-label" for="person-select">人員</label>
+        <select id="person-select" disabled></select>
+      </div>
+      <p id="error-banner" class="error-banner" hidden></p>
+    </header>
+
+    <div id="legend" class="legend" hidden></div>
+    <div id="calendar-root"></div>
+
+  </body>
+</html>

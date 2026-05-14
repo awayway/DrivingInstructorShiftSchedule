@@ -1,8 +1,7 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
+# Build output：dist 納入版控，方便直接 push 給 GitHub Pages（先在本機 npm run build）
 
 # Local env (secrets / machine-specific)
 .env
