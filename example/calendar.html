@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>維鈞班表 2026</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: #F4F1EC;
+    color: #2C2C2C;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: #1A1A2E;
+    margin-bottom: 8px;
+  }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #444;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .month-section {
+    max-width: 900px;
+    margin: 0 auto 48px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    overflow: hidden;
+  }
+
+  .month-header {
+    background: #1A1A2E;
+    color: #fff;
+    text-align: center;
+    padding: 16px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-left: 1px solid #E8E3DC;
+    border-top: 1px solid #E8E3DC;
+  }
+
+  .day-header {
+    background: #F7F4EF;
+    text-align: center;
+    padding: 10px 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #666;
+    border-right: 1px solid #E8E3DC;
+    border-bottom: 1px solid #E8E3DC;
+  }
+
+  .day-header.weekend { color: #C0392B; }
+
+  .day-cell {
+    border-right: 1px solid #E8E3DC;
+    border-bottom: 1px solid #E8E3DC;
+    min-height: 96px;
+    padding: 6px;
+    vertical-align: top;
+    position: relative;
+  }
+
+  .day-cell.other-month {
+    background: #FAFAF8;
+  }
+
+  .day-cell.today {
+    background: #FFFDE7;
+  }
+
+  .date-num {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+
+  .day-cell.other-month .date-num {
+    color: #CCCCCC;
+  }
+
+  .day-cell.sunday .date-num,
+  .day-cell.saturday .date-num {
+    color: #C0392B;
+  }
+
+  .day-cell.other-month.sunday .date-num,
+  .day-cell.other-month.saturday .date-num {
+    color: #E8C0BC;
+  }
+
+  .event-card {
+    border-radius: 6px;
+    padding: 4px 6px;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .project-name {
+    font-weight: 700;
+    font-size: 0.72rem;
+  }
+
+  .location-name {
+    font-size: 0.68rem;
+    opacity: 0.85;
+  }
+
+  /* Project color themes */
+  .proj-jingzhuan {
+    background: #D6EAF8;
+    color: #1A5276;
+    border-left: 3px solid #2E86C1;
+  }
+
+  .proj-jingdaxue {
+    background: #D5F5E3;
+    color: #1D6A3A;
+    border-left: 3px solid #27AE60;
+  }
+
+  .proj-jingzhengpu {
+    background: #FDEBD0;
+    color: #784212;
+    border-left: 3px solid #E67E22;
+  }
+</style>
+</head>
+<body>
+
+<h1>維鈞班表 · 2026</h1>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#2E86C1;"></div>
+    <span>警專汽車 · 警專保一保四</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#27AE60;"></div>
+    <span>警察大學 · 警察大學</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#E67E22;"></div>
+    <span>警政署普機 · 大龍港 / 樹林</span>
+  </div>
+</div>
+
+<div id="calendar"></div>
+
+<script>
+// Schedule data
+const scheduleData = {
+  "2026-05-14": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-15": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-18": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-19": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-20": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-21": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-22": { project: "警專汽車", location: "警專保一保四", cls: "proj-jingzhuan" },
+  "2026-05-30": { project: "警察大學", location: "警察大學", cls: "proj-jingdaxue" },
+  "2026-05-31": { project: "警察大學", location: "警察大學", cls: "proj-jingdaxue" },
+  "2026-06-06": { project: "警察大學", location: "警察大學", cls: "proj-jingdaxue" },
+  "2026-06-07": { project: "警察大學", location: "警察大學", cls: "proj-jingdaxue" },
+  "2026-06-11": { project: "警政署普機", location: "大龍港", cls: "proj-jingzhengpu" },
+  "2026-06-12": { project: "警政署普機", location: "大龍港", cls: "proj-jingzhengpu" },
+  "2026-06-13": { project: "警政署普機", location: "大龍港", cls: "proj-jingzhengpu" },
+  "2026-06-15": { project: "警察大學", location: "警察大學", cls: "proj-jingdaxue" },
+  "2026-06-22": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-23": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-24": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-25": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-26": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-27": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-29": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+  "2026-06-30": { project: "警政署普機", location: "樹林", cls: "proj-jingzhengpu" },
+};
+
+const today = new Date();
+const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+const dayHeaders = ['一','二','三','四','五','六','日'];
+const weekendIdx = [5, 6]; // Saturday=5, Sunday=6 (0-indexed in our Mon-first grid)
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function buildMonth(year, month, label) {
+  // month: 1-indexed
+  const section = document.createElement('div');
+  section.className = 'month-section';
+
+  const header = document.createElement('div');
+  header.className = 'month-header';
+  header.textContent = label;
+  section.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'cal-grid';
+
+  // Day headers
+  dayHeaders.forEach((d, i) => {
+    const dh = document.createElement('div');
+    dh.className = 'day-header' + (i >= 5 ? ' weekend' : '');
+    dh.textContent = d;
+    grid.appendChild(dh);
+  });
+
+  // First day of month: what day of week? (0=Sun,...,6=Sat)
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  // Convert to Mon=0 ... Sun=6
+  const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const prevDays = new Date(year, month - 1, 0).getDate();
+
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+
+    const colIdx = i % 7; // 0=Mon,...,6=Sun
+    if (colIdx === 6) cell.classList.add('sunday');
+    if (colIdx === 5) cell.classList.add('saturday');
+
+    let dateNum, dateYear, dateMonth;
+
+    if (i < startOffset) {
+      // Previous month
+      dateNum = prevDays - startOffset + i + 1;
+      dateMonth = month - 1 < 1 ? 12 : month - 1;
+      dateYear = month - 1 < 1 ? year - 1 : year;
+      cell.classList.add('other-month');
+    } else if (i >= startOffset + daysInMonth) {
+      // Next month
+      dateNum = i - startOffset - daysInMonth + 1;
+      dateMonth = month + 1 > 12 ? 1 : month + 1;
+      dateYear = month + 1 > 12 ? year + 1 : year;
+      cell.classList.add('other-month');
+    } else {
+      dateNum = i - startOffset + 1;
+      dateMonth = month;
+      dateYear = year;
+    }
+
+    const dateStr = `${dateYear}-${pad(dateMonth)}-${pad(dateNum)}`;
+
+    if (dateStr === todayStr) cell.classList.add('today');
+
+    const dateLabel = document.createElement('div');
+    dateLabel.className = 'date-num';
+    dateLabel.textContent = dateNum;
+    cell.appendChild(dateLabel);
+
+    if (scheduleData[dateStr] && !cell.classList.contains('other-month')) {
+      const ev = scheduleData[dateStr];
+      const card = document.createElement('div');
+      card.className = `event-card ${ev.cls}`;
+      card.innerHTML = `<div class="project-name">${ev.project}</div><div class="location-name">${ev.location}</div>`;
+      cell.appendChild(card);
+    }
+
+    grid.appendChild(cell);
+  }
+
+  section.appendChild(grid);
+  return section;
+}
+
+const cal = document.getElementById('calendar');
+cal.appendChild(buildMonth(2026, 5, '2026年 五月'));
+cal.appendChild(buildMonth(2026, 6, '2026年 六月'));
+</script>
+</body>
+</html>
