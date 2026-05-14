@@ -191,25 +191,51 @@ body {
 }
 
 .event-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
   border-radius: 6px;
   padding: 4px 6px;
   margin-top: 3px;
   font-size: 0.7rem;
-  line-height: 1.45;
+  line-height: 1.35;
   font-weight: 500;
-  white-space: pre-line;
 }
 
 .project-name {
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+  line-height: 1.3;
 }
 
-.location-name,
-.period-line,
-.raw-name-line {
+.location-name {
+  font-weight: 500;
   font-size: 0.68rem;
-  opacity: 0.9;
+  line-height: 1.35;
+  opacity: 0.82;
+}
+
+.raw-name-line {
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.88;
+}
+
+.period-line {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 1px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.55);
+  opacity: 1;
 }
 
 .proj-jingzhuan {

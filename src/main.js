@@ -50,6 +50,36 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
+/**
+ * @param {HTMLDivElement} card
+ * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+ * @param {string} personKey
+ */
+function fillEventCard(card, ev, personKey) {
+  if (personKey === OTHER_KEY && ev.rawName) {
+    const raw = document.createElement('div');
+    raw.className = 'raw-name-line';
+    raw.textContent = ev.rawName;
+    card.appendChild(raw);
+  }
+  const projectEl = document.createElement('div');
+  projectEl.className = 'project-name';
+  projectEl.textContent = ev.project;
+  card.appendChild(projectEl);
+  if (ev.location) {
+    const locEl = document.createElement('div');
+    locEl.className = 'location-name';
+    locEl.textContent = ev.location;
+    card.appendChild(locEl);
+  }
+  if (ev.period) {
+    const periodEl = document.createElement('span');
+    periodEl.className = 'period-line';
+    periodEl.textContent = ev.period;
+    card.appendChild(periodEl);
+  }
+}
+
 const dayHeaders = ['一', '二', '三', '四', '五', '六', '日'];
 
 function todayYMD() {
@@ -136,12 +166,7 @@ function buildMonth(year, month, label, personKey) {
           const card = document.createElement('div');
           const cls = projectClass(ev.project);
           card.className = `event-card ${cls}`;
-          const lines = [];
-          if (personKey === OTHER_KEY && ev.rawName) lines.push(ev.rawName);
-          lines.push(ev.project);
-          if (ev.location) lines.push(ev.location);
-          if (ev.period) lines.push(ev.period);
-          card.textContent = lines.filter(Boolean).join('\n');
+          fillEventCard(card, ev, personKey);
           cell.appendChild(card);
         }
       }
