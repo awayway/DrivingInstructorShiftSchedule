@@ -239,6 +239,10 @@ body.dialog-open {
   font-size: 0.92rem;
 }
 
+.dialog__body .month-filter-toggle + .month-filter-toggle {
+  margin-top: 12px;
+}
+
 .dialog-empty-hint {
   text-align: center;
   color: #666;
@@ -366,6 +370,25 @@ body.dialog-open {
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.15em;
+}
+
+.month-section--empty {
+  margin-bottom: 32px;
+}
+
+.month-header--empty {
+  background: #e8e3dc;
+  color: #666;
+  padding: 14px 16px;
+}
+
+.month-empty-body {
+  text-align: center;
+  padding: 20px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #888;
+  letter-spacing: 0.06em;
 }
 
 .cal-grid {
@@ -566,6 +589,19 @@ body.dialog-open {
   .month-header {
     padding: 12px;
     font-size: 0.95rem;
+  }
+
+  .month-section--empty {
+    margin-bottom: 24px;
+  }
+
+  .month-header--empty {
+    padding: 12px;
+  }
+
+  .month-empty-body {
+    padding: 16px;
+    font-size: 0.85rem;
   }
 
   .day-header {

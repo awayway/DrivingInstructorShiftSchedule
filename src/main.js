@@ -6,6 +6,7 @@ const personSummary = document.getElementById('person-summary');
 const personRadioList = document.getElementById('person-radio-list');
 const personDialogEmpty = document.getElementById('person-dialog-empty');
 const monthFilterFutureOnly = document.getElementById('month-filter-future-only');
+const showEmptyMonths = document.getElementById('show-empty-months');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
@@ -309,6 +310,67 @@ function monthLabel(y, m) {
   return `${y}年 ${m}月`;
 }
 
+/**
+ * @param {{ year: number, month: number }} a
+ * @param {{ year: number, month: number }} b
+ * @returns {number}
+ */
+function compareYearMonth(a, b) {
+  return a.year !== b.year ? a.year - b.year : a.month - b.month;
+}
+
+/**
+ * @param {number} year
+ * @param {number} month 1-based
+ * @returns {{ year: number, month: number }}
+ */
+function nextCalendarMonth(year, month) {
+  if (month >= 12) return { year: year + 1, month: 1 };
+  return { year, month: month + 1 };
+}
+
+/**
+ * @param {{ year: number, month: number }[]} months sorted data months
+ * @returns {Array<{ type: 'data' | 'empty', year: number, month: number }>}
+ */
+function expandMonthsWithGaps(months) {
+  if (!months.length) return [];
+  const out = [{ type: 'data', year: months[0].year, month: months[0].month }];
+  for (let i = 1; i < months.length; i++) {
+    const prev = months[i - 1];
+    const curr = months[i];
+    let cursor = nextCalendarMonth(prev.year, prev.month);
+    while (compareYearMonth(cursor, curr) < 0) {
+      out.push({ type: 'empty', year: cursor.year, month: cursor.month });
+      cursor = nextCalendarMonth(cursor.year, cursor.month);
+    }
+    out.push({ type: 'data', year: curr.year, month: curr.month });
+  }
+  return out;
+}
+
+/**
+ * @param {number} year
+ * @param {number} month 1-based
+ */
+function buildEmptyMonthPlaceholder(year, month) {
+  const section = document.createElement('div');
+  section.className = 'month-section month-section--empty';
+  section.setAttribute('aria-label', `${monthLabel(year, month)}，無排班資料`);
+
+  const header = document.createElement('div');
+  header.className = 'month-header month-header--empty';
+  header.textContent = monthLabel(year, month);
+  section.appendChild(header);
+
+  const body = document.createElement('p');
+  body.className = 'month-empty-body';
+  body.textContent = '無排班資料';
+  section.appendChild(body);
+
+  return section;
+}
+
 function renderCalendar() {
   calendarRoot.innerHTML = '';
   if (!parsed) {
@@ -339,8 +401,21 @@ function renderCalendar() {
     calendarRoot.appendChild(p);
     return;
   }
-  for (const { year, month } of months) {
-    calendarRoot.appendChild(buildMonth(year, month, monthLabel(year, month), key));
+  const showGaps = showEmptyMonths && showEmptyMonths.checked;
+  const displayMonths = showGaps
+    ? expandMonthsWithGaps(months)
+    : months.map(({ year, month }) => ({ type: 'data', year, month }));
+
+  for (const item of displayMonths) {
+    if (item.type === 'empty') {
+      calendarRoot.appendChild(
+        buildEmptyMonthPlaceholder(item.year, item.month)
+      );
+    } else {
+      calendarRoot.appendChild(
+        buildMonth(item.year, item.month, monthLabel(item.year, item.month), key)
+      );
+    }
   }
 }
 
@@ -470,6 +545,10 @@ personRadioList.addEventListener('change', (e) => {
 });
 
 monthFilterFutureOnly.addEventListener('change', () => {
+  renderCalendar();
+});
+
+showEmptyMonths?.addEventListener('change', () => {
   renderCalendar();
 });
 
