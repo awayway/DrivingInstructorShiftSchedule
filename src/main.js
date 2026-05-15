@@ -3,10 +3,27 @@ import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 const fileInput = document.getElementById('file-input');
 const btnImport = document.getElementById('btn-import');
 const personSelect = document.getElementById('person-select');
+const personSummary = document.getElementById('person-summary');
 const monthFilterFutureOnly = document.getElementById('month-filter-future-only');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
+const mainNav = document.getElementById('main-nav');
+const sheetOverlay = document.getElementById('sheet-overlay');
+const sheetPeople = document.getElementById('sheet-people');
+const sheetView = document.getElementById('sheet-view');
+
+/** @type {'people' | 'view' | null} */
+let openSheetName = null;
+/** @type {HTMLButtonElement | null} */
+let sheetTriggerBtn = null;
+
+const SHEETS = {
+  people: sheetPeople,
+  view: sheetView,
+};
+
+const NAV_BTNS = mainNav.querySelectorAll('.main-nav__btn[data-sheet]');
 
 const PROJ_CLASSES = [
   'proj-jingzhuan',
@@ -29,6 +46,73 @@ function showError(msg) {
 function clearError() {
   errorBanner.hidden = true;
   errorBanner.textContent = '';
+}
+
+function updatePersonSummary() {
+  if (!personSummary) return;
+  if (!parsed || personSelect.disabled || !personSelect.value) {
+    personSummary.hidden = true;
+    personSummary.textContent = '';
+    return;
+  }
+  const opt = personSelect.selectedOptions[0];
+  const name = opt ? opt.textContent : personSelect.value;
+  personSummary.textContent = `人員：${name}`;
+  personSummary.hidden = false;
+}
+
+function setNavExpanded(sheetName) {
+  for (const btn of NAV_BTNS) {
+    const key = btn.getAttribute('data-sheet');
+    if (key === 'more') continue;
+    btn.setAttribute('aria-expanded', key === sheetName ? 'true' : 'false');
+  }
+}
+
+/**
+ * @param {'people' | 'view'} name
+ * @param {HTMLButtonElement} [triggerBtn]
+ */
+function openSheet(name, triggerBtn) {
+  if (openSheetName === name) {
+    closeAllSheets();
+    return;
+  }
+  closeAllSheets();
+  const panel = SHEETS[name];
+  if (!panel) return;
+  openSheetName = name;
+  sheetTriggerBtn = triggerBtn || null;
+  sheetOverlay.hidden = false;
+  sheetOverlay.setAttribute('aria-hidden', 'false');
+  panel.hidden = false;
+  document.body.classList.add('sheet-open');
+  setNavExpanded(name);
+  const focusTarget = panel.querySelector('select, input, button');
+  if (focusTarget instanceof HTMLElement) focusTarget.focus();
+}
+
+function closeAllSheets() {
+  openSheetName = null;
+  sheetOverlay.hidden = true;
+  sheetOverlay.setAttribute('aria-hidden', 'true');
+  sheetPeople.hidden = true;
+  sheetView.hidden = true;
+  document.body.classList.remove('sheet-open');
+  setNavExpanded(null);
+  if (sheetTriggerBtn) {
+    sheetTriggerBtn.focus();
+    sheetTriggerBtn = null;
+  }
+}
+
+function renderEmptyHint() {
+  if (parsed) return;
+  calendarRoot.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'empty-hint';
+  p.innerHTML = '請點上方 <strong>「匯入總排班表」</strong>';
+  calendarRoot.appendChild(p);
 }
 
 function hashProject(project) {
@@ -218,7 +302,12 @@ function monthLabel(y, m) {
 
 function renderCalendar() {
   calendarRoot.innerHTML = '';
-  if (!parsed) return;
+  if (!parsed) {
+    renderEmptyHint();
+    updatePersonSummary();
+    return;
+  }
+  updatePersonSummary();
   const key = personSelect.value;
   const allMonths = collectMonths(key);
   if (!allMonths.length) {
@@ -291,6 +380,7 @@ function fillPersonSelect() {
   personSelect.appendChild(other);
   personSelect.disabled = false;
   personSelect.value = parsed.people[0] || OTHER_KEY;
+  updatePersonSummary();
 }
 
 async function onFile(file) {
@@ -302,12 +392,15 @@ async function onFile(file) {
     fillPersonSelect();
     fillLegend();
     renderCalendar();
+    updatePersonSummary();
   } catch (e) {
     parsed = null;
     personSelect.innerHTML = '';
     personSelect.disabled = true;
     calendarRoot.innerHTML = '';
     legendEl.hidden = true;
+    updatePersonSummary();
+    renderEmptyHint();
     showError(e instanceof Error ? e.message : String(e));
   }
 }
@@ -322,8 +415,35 @@ fileInput.addEventListener('change', () => {
 personSelect.addEventListener('change', () => {
   fillLegend();
   renderCalendar();
+  updatePersonSummary();
+  closeAllSheets();
 });
 
 monthFilterFutureOnly.addEventListener('change', () => {
   renderCalendar();
 });
+
+for (const btn of NAV_BTNS) {
+  btn.addEventListener('click', () => {
+    const sheet = btn.getAttribute('data-sheet');
+    if (sheet === 'more') return;
+    if (sheet === 'people' || sheet === 'view') {
+      openSheet(sheet, btn);
+    }
+  });
+}
+
+sheetOverlay.addEventListener('click', closeAllSheets);
+
+for (const panel of [sheetPeople, sheetView]) {
+  panel.addEventListener('click', (e) => e.stopPropagation());
+  const closeBtn = panel.querySelector('.sheet-panel__close');
+  closeBtn?.addEventListener('click', closeAllSheets);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && openSheetName) closeAllSheets();
+});
+
+renderEmptyHint();
+updatePersonSummary();

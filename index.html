@@ -10,21 +10,80 @@
     <header class="app-header">
       <h1>總排班表 · 個人月曆</h1>
       <p class="subtitle">檔案僅在瀏覽器解析，不會上傳至伺服器</p>
+      <p id="person-summary" class="person-summary" hidden></p>
       <div class="toolbar">
         <input id="file-input" type="file" accept=".xlsx,.xls" hidden />
         <button type="button" id="btn-import" class="btn-primary">匯入總排班表</button>
-        <label class="person-label" for="person-select">人員</label>
-        <select id="person-select" disabled></select>
-        <label class="month-filter-toggle">
-          <input type="checkbox" id="month-filter-future-only" checked />
-          只顯示本月及未來月份
-        </label>
       </div>
       <p id="error-banner" class="error-banner" hidden></p>
     </header>
 
     <div id="legend" class="legend" hidden></div>
     <div id="calendar-root"></div>
+
+    <nav id="main-nav" class="main-nav" aria-label="主導航">
+      <div class="main-nav__actions">
+        <button
+          type="button"
+          class="main-nav__btn"
+          data-sheet="people"
+          aria-controls="sheet-people"
+          aria-expanded="false"
+        >
+          人員
+        </button>
+        <button
+          type="button"
+          class="main-nav__btn"
+          data-sheet="view"
+          aria-controls="sheet-view"
+          aria-expanded="false"
+        >
+          檢視
+        </button>
+        <button type="button" class="main-nav__btn" data-sheet="more">更多</button>
+      </div>
+    </nav>
+
+    <div id="sheet-overlay" class="sheet-overlay" hidden aria-hidden="true"></div>
+
+    <div
+      id="sheet-people"
+      class="sheet-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sheet-people-title"
+      hidden
+    >
+      <header class="sheet-panel__header">
+        <h2 id="sheet-people-title" class="sheet-panel__title">人員</h2>
+        <button type="button" class="sheet-panel__close" aria-label="關閉">×</button>
+      </header>
+      <div class="sheet-panel__body">
+        <label class="person-label" for="person-select">目前人員</label>
+        <select id="person-select" disabled></select>
+      </div>
+    </div>
+
+    <div
+      id="sheet-view"
+      class="sheet-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sheet-view-title"
+      hidden
+    >
+      <header class="sheet-panel__header">
+        <h2 id="sheet-view-title" class="sheet-panel__title">檢視設定</h2>
+        <button type="button" class="sheet-panel__close" aria-label="關閉">×</button>
+      </header>
+      <div class="sheet-panel__body">
+        <label class="month-filter-toggle">
+          <input type="checkbox" id="month-filter-future-only" checked />
+          只顯示本月及未來月份
+        </label>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
