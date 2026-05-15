@@ -1,4 +1,4 @@
-# UI 改版開發計劃（底部三鍵導航）
+# UI 改版開發計劃（底欄／右側欄導航）
 
 ## 1. 背景與目標
 
@@ -6,19 +6,33 @@
 
 - 主要使用裝置為**手機**（桌面亦有，但手機常用）。
 - 月曆為**垂直捲動**之多個月份區塊；若檢視選項全放在頂部 `toolbar`，使用者捲到下方月份時，無法快速切換人員或檢視設定。
+- **手機橫向**時可用高度很少，若三鍵仍固定底部會明顯壓縮月曆可視區域。
 - 未來將增加多項檢視與匯出功能；頂部空間不足以容納。
 
 ### 1.2 設計決策（已定案）
 
 | 項目 | 決策 |
 | ---- | ---- |
-| 主導航 | 底部固定三鍵：**人員**、**檢視**、**更多** |
-| 面板形式 | 手機：**Bottom Sheet**（自底部滑出）；桌面：同一套邏輯，可改為置中 Modal 或較寬面板（響應式） |
+| 主導航 | 固定三鍵：**人員**、**檢視**、**更多**；**同一組 DOM**，依斷點切換排版（見下表） |
+| 導航排版（響應式） | **直向手機（預設）**：底部橫排底欄。**寬度夠時**：改為**右側**固定直欄（見 §1.2.1、§9） |
+| 面板形式 | 一律 **Bottom Sheet**（自底部滑出）；寬螢幕／側欄模式可選讓 sheet 面板 `max-width` 與主內容同欄置中，仍自底部滑出 |
 | 匯入按鈕 | **保留在 header**（不遷移到底欄「更多」）；進站後首要操作、重新匯入頻率低，置頂較明顯 |
-| 「更多」Phase 1 | 底欄按鈕可先存在，**點擊暫不開啟 sheet**（無反應）；待 Phase 4 匯出功能再實作內容 |
-| 目前人員顯示 | **header 內一行文字**（如 `人員：維鈞`）；隨 header **一起捲走**，**不 sticky**；與底欄「人員」sheet 選擇同步更新 |
+| 「更多」Phase 1 | 導航按鈕可先存在，**點擊暫不開啟 sheet**（無反應）；待 Phase 4 匯出功能再實作內容 |
+| 目前人員顯示 | **header 內一行文字**（如 `人員：維鈞`）；隨 header **一起捲走**，**不 sticky**；與「人員」sheet 選擇同步更新 |
 | 狀態列／頂部 sticky | **不做**（不含獨立 sticky 摘要列；header 內人員文字屬一般 header 內容，非固定列） |
 | 主畫面 | 盡量留給圖例 + 月曆／清單內容 |
+
+#### 1.2.1 為何採右側欄（非左側）
+
+**已定案：寬螢幕／橫向時，三鍵放在視窗右側直欄。**
+
+| 考量 | 右側（採用） | 左側（未採用） |
+| ---- | ------------ | -------------- |
+| 垂直空間 | 不佔底部高度，橫向手機可多顯示月曆列 | 同右側 |
+| 閱讀與月曆 | 標題、週一欄起點多在左，工具放右較少搶視線 | 左側欄與月曆左緣競爭 |
+| 系統手勢 | 較少與 Android 左緣返回、iOS 邊緣手勢衝突 | 左緣易誤觸 |
+| 橫握操作 | 多數右手使用者較易觸及右緣／右下區 | 左緣較遠 |
+| 常見模式 | 地圖、閱讀類 App 常把次要工具放右 | Material 桌面常見左側 rail，但本專案以手機橫向為優先 |
 
 ### 1.3 與既有計劃的關係
 
@@ -29,24 +43,42 @@
 
 ## 2. 改版後版面結構
 
+### 2.1 直向手機（底欄模式，預設）
+
 ```
 ┌─────────────────────────────┐
 │ 總排班表 · 個人月曆            │  ← header（標題、副標）
 │ 檔案僅在瀏覽器解析…            │     隨頁面捲動，不 sticky
-│  人員：維鈞                   │  ← #person-summary（匯入後顯示；多選時「人員：維鈞、鴨子」）
-│  [ 匯入總排班表 ]              │  ← 匯入按鈕常駐 header（不遷移）
+│  人員：維鈞                   │  ← #person-summary
+│  [ 匯入總排班表 ]              │
 ├─────────────────────────────┤
-│  #legend（圖例，有資料時顯示）   │
-│  #calendar-root（月曆主體）    │  ← padding-bottom 避免被底欄遮住
+│  #legend                     │
+│  #calendar-root              │  ← padding-bottom 避開底欄
 │                             │
 ├─────────────────────────────┤
-│  [人員]   [檢視]   [更多]    │  ← #bottom-bar（固定底欄）
+│    [人員] [檢視] [更多]       │  ← #main-nav（底欄；三鍵置中成組，不均分全寬）
 └─────────────────────────────┘
 ```
 
-點擊底欄按鈕 → 開啟對應 **Sheet**（遮罩 + 可關閉面板）：
+### 2.2 橫向手機／桌面（右側欄模式）
 
-| 底欄按鈕 | Sheet ID（建議） | Phase 1 | 未來 |
+```
+┌──────────────────────────────────────┬──┐
+│  header、#legend、#calendar-root      │人│
+│  （主內容區；padding-right 避開側欄）  │員│
+│                                      │檢│
+│                                      │視│
+│                                      │更│
+│                                      │多│
+└──────────────────────────────────────┴──┘
+                                        ↑ #main-nav 右側固定直欄（約 56–72px + safe area）
+```
+
+**切換條件**（CSS，見 §9）：`(min-width: 768px)` **或** `(min-width: 600px) and (orientation: landscape)` → 右側欄；其餘 → 底欄。
+
+點擊導航按鈕 → 開啟對應 **Sheet**（遮罩 + 可關閉面板）：
+
+| 導航按鈕 | Sheet ID（建議） | Phase 1 | 未來 |
 | -------- | ---------------- | ------- | ---- |
 | **人員** | `#sheet-people` | 單一人員 `<select>`（自 toolbar 遷入） | 多選 checkbox 清單 |
 | **檢視** | `#sheet-view` | 「只顯示本月及未來月份」checkbox（自 toolbar 遷入） | 地點／期別／空白月／月曆清單模式等 |
@@ -68,9 +100,9 @@
 
 ---
 
-## 4. Phase 1：底部三鍵遷移（不影響功能）
+## 4. Phase 1：三鍵導航遷移（不影響功能）
 
-> **目標**：使用者改從底欄開啟面板操作；行為與現版完全一致。
+> **目標**：使用者改從底欄或右側欄開啟面板操作（依斷點自動切換）；行為與現版完全一致。
 
 ### 4.1 HTML（`index.html`）
 
@@ -79,19 +111,24 @@
    - **新增** `#person-summary`（建議 `<p class="person-summary">`）：顯示目前選取人員，格式 **`人員：{名稱}`**；尚未匯入或無選取時 `hidden` 或留空。
    - 移除 toolbar 內的 `#person-select`、人員 label、`#month-filter-future-only`（改放 sheet）。
 2. **新增**：
-   - `<nav id="bottom-bar" class="bottom-bar">`：三個 `<button type="button">`（`data-sheet="people|view|more"`）。
+   - `<nav id="main-nav" class="main-nav">`：內層建議 `.main-nav__actions`，內放三個 `<button type="button">`（`data-sheet="people|view|more"`）。**僅一組 DOM**；CSS 依 §9 切換底欄／右側欄，勿做兩套按鈕。
+   - 底欄模式：`.main-nav__actions` 橫排、`justify-content: center`、固定 `gap`（**不均分**全寬）。
+   - 右側欄模式：`.main-nav__actions` 直排、`flex-direction: column`、按鈕置中。
    - **Phase 1 僅實作** `#sheet-people`、`#sheet-view` 兩個 sheet 容器（結構見 §4.4）。
-   - `#sheet-more` 可**不建 DOM**，或預留空容器；底欄「更多」按鈕 **不綁定** `openSheet('more')`。
+   - `#sheet-more` 可**不建 DOM**，或預留空容器；「更多」按鈕 **不綁定** `openSheet('more')`。
 3. **錯誤橫幅** `#error-banner` 仍留在 `header` 內。
 
 ### 4.2 CSS（`styles.css`）
 
 | 樣式類別 | 說明 |
 | -------- | ---- |
-| `.bottom-bar` | `position: fixed; bottom: 0; left: 0; right: 0;`；含 `padding-bottom: env(safe-area-inset-bottom)` |
-| `body` 或 `#calendar-root` 父層 | `padding-bottom` ≥ 底欄高度（建議 56–64px + safe area） |
+| `.main-nav`（底欄模式，預設） | `position: fixed; bottom: 0; left: 0; right: 0;`；`padding-bottom: env(safe-area-inset-bottom)` |
+| `.main-nav__actions`（底欄） | `display: flex; justify-content: center; gap: 12px–24px`；**勿** `space-between` 或按鈕 `flex: 1` |
+| `.main-nav`（右側欄模式，見 §9 媒體查詢） | `top: 0; bottom: 0; right: 0; left: auto; width: ~56–72px`；`padding-right: env(safe-area-inset-right)` |
+| `.main-nav__actions`（右側欄） | `flex-direction: column; justify-content: center; gap: 8px–16px; height: 100%` |
+| `body` 或主內容包裝 | 底欄模式：`padding-bottom` ≥ 底欄高（56–64px + safe area）；右側欄模式：`padding-right` ≥ 側欄寬 + safe area；**勿同時**留過大 bottom padding |
 | `.sheet-overlay` | 全螢幕半透明遮罩；點擊關閉 |
-| `.sheet-panel` | 自底部滑入；`max-height: ~85vh`；內容可捲動 |
+| `.sheet-panel` | 自底部滑入；`max-height: ~85vh`；內容可捲；寬螢幕可 `max-width: 900px` 水平置中 |
 | `.sheet-panel[hidden]` / `.sheet-overlay[hidden]` | 關閉狀態 |
 
 移除或調整原 `.toolbar`、`.month-filter-toggle` 在頂部的樣式；sheet 內可複用類似排版。
@@ -101,8 +138,8 @@
 **Phase 1 僅新增「殼層」邏輯，不 refactor 資料流：**
 
 1. `openSheet(name)` / `closeSheet()` / `closeAllSheets()`（`name` 僅 `'people' | 'view'`）。
-2. 底欄「人員」「檢視」click → 開啟對應 sheet（若已開啟同一個可 toggle 關閉）。
-3. 底欄「更多」click → **Phase 1 不處理**（`preventDefault` 後 return，或根本不綁 listener）。
+2. `#main-nav` 內「人員」「檢視」click → 開啟對應 sheet（若已開啟同一個可 toggle 關閉）；底欄／右側欄共用同一 listener。
+3. 「更多」click → **Phase 1 不處理**（`preventDefault` 後 return，或根本不綁 listener）。
 4. 遮罩 click、`Escape` 鍵 → 關閉 sheet。
 5. **新增** `updatePersonSummary()`：依 `#person-select` 目前值更新 `#person-summary` 文字；於 `personSelect` `change`、`fillPersonSelect`（匯入後）、`renderCalendar` 等時機呼叫。
 6. **不修改** `parseShiftWorkbook`、`renderCalendar`、`applyFutureMonthFilter` 等核心邏輯。
@@ -156,11 +193,11 @@
 | 多選但僅一人 | 仍為 `人員：維鈞`（單名不加頓號） |
 
 - 分隔符號：**全形頓號 `、`**。
-- **唯讀展示**；變更人員請用底欄「人員」sheet（summary 本身不必可點，除非日後產品要點擊開 sheet）。
+- **唯讀展示**；變更人員請用導航「人員」sheet（summary 本身不必可點，除非日後產品要點擊開 sheet）。
 
 #### `#sheet-more`（更多）— Phase 1 不實作
 
-- 底欄保留「更多」按鈕以預留導覽位置；**點擊無反應**。
+- 導航保留「更多」按鈕以預留位置；**點擊無反應**。
 - Phase 4 再新增 sheet 與匯出按鈕（見 §6.4）。
 
 ### 4.5 空狀態引導（建議，Phase 1 可選）
@@ -180,11 +217,14 @@
 | 3 | 人員 sheet 切換人員 | 月曆、圖例即時更新；header 顯示 `人員：{名稱}` 與選項一致 |
 | 3b | 捲動頁面後 | header（含人員文字）隨內容捲走，**不**固定於視窗頂端 |
 | 4 | 檢視 sheet 勾選／取消「只顯示本月及未來月份」 | 月份區塊顯示／隱藏與改版前一致 |
-| 5 | 點底欄「更多」 | **無 sheet 彈出、無錯誤** |
-| 6 | 捲動至最後一個月份 | 底欄仍可點；最後一個月不被底欄遮住 |
+| 5 | 點「更多」 | **無 sheet 彈出、無錯誤** |
+| 6 | 捲動至最後一個月份 | 導航仍可點；最後一個月不被底欄／側欄遮住 |
 | 7 | 開啟 sheet 後點遮罩、按 Esc | sheet 關閉，月曆可操作 |
-| 8 | 手機寬度（≤600px） | 底欄不擋內容；sheet 可捲動；header 匯入按鈕可點 |
+| 8 | 手機直向（底欄模式） | 底欄不擋內容；三鍵置中；sheet 可捲；匯入可點 |
+| 8b | 手機橫向（右側欄模式） | 無底欄佔高；右側三鍵可點；月曆可視高度明顯大於底欄方案 |
+| 8c | 桌面（≥768px，右側欄） | 右側欄固定；主內容 `padding-right` 正確；sheet 正常 |
 | 9 | 選取「其他」 | 行為與 `develop-plan.md` 一致 |
+| 10 | 旋轉螢幕直向↔橫向 | 導航自動切換底欄／右側欄；無重複按鈕、功能正常 |
 
 ### 4.7 Phase 1 交付物
 
@@ -200,16 +240,16 @@
 
 - 位置：**header 內** `#person-summary`，與標題、匯入按鈕同區。
 - 性質：**唯讀摘要**，隨 header 捲動；**不是**獨立 sticky 狀態列。
-- 與底欄「人員」sheet 的 `<select>`（或未來多選）保持同步。
+- 與導航「人員」sheet 的 `<select>`（或未來多選）保持同步。
 
-### 5.2 可選輕量提示（底欄／sheet）
+### 5.2 可選輕量提示（導航／sheet）
 
-以下僅在 **底欄按鈕** 或 **sheet 內** 提供額外線索，Phase 1 可省略：
+以下僅在 **導航按鈕**（底欄或右側欄）或 **sheet 內** 提供額外線索，Phase 1 可省略：
 
 | 位置 | 時機 | 呈現 |
 | ---- | ---- | ---- |
-| 底欄「人員」 | Phase 3 多選後，已選人數 ≠ 全部 | 按鈕角標數字（可選；header 已有全名列表時非必須） |
-| 底欄「檢視」 | 任一檢視選項偏離預設 | 小圓點 |
+| 「人員」按鈕 | Phase 3 多選後，已選人數 ≠ 全部 | 按鈕角標數字（可選；header 已有全名列表時非必須） |
+| 「檢視」按鈕 | 任一檢視選項偏離預設 | 小圓點 |
 | Sheet 標題下方 | 打開檢視 sheet 時 | 一行小字摘要（僅 sheet 內） |
 
 ---
@@ -296,7 +336,7 @@ Phase 1：底欄「更多」可見，**點擊不開啟**上述內容。
 
 | 階段 | 內容 | 影響範圍 |
 | ---- | ---- | -------- |
-| **Phase 1** | 底欄三鍵；人員／檢視 sheet；header 匯入 + `#person-summary`；「更多」暫無反應 | `index.html`、`styles.css`、`main.js`（殼層） |
+| **Phase 1** | 響應式三鍵導航（直向底欄／橫向與桌面右側欄）；人員／檢視 sheet；header 匯入 + `#person-summary`；「更多」暫無反應 | `index.html`、`styles.css`、`main.js`（殼層） |
 | **Phase 2** | `viewSettings` 物件；地點／期別／空白月／月曆清單切換；localStorage | `main.js`、`styles.css` |
 | **Phase 3** | 人員多選；合併月曆／清單分組；底欄角標 | `main.js`、可能調整 `collectMonths` / `buildMonth` |
 | **Phase 4** | PDF／CSV 匯出；匯出範圍說明 | 新模組或 `export.js`、print 樣式 |
@@ -331,11 +371,38 @@ let selectedPeople = [];    // Phase 3；Phase 1 仍用 person-select 單值
 
 ## 9. 響應式與無障礙
 
+### 9.1 導航斷點（已定案）
+
+| 模式 | 條件（滿足任一即為右側欄） | 導航位置 |
+| ---- | -------------------------- | -------- |
+| **底欄**（預設） | 其餘情況（以**手機直向**為主） | 底部橫排，三鍵置中成組 |
+| **右側欄** | `min-width: 768px` | 視窗右側固定直欄 |
+| **右側欄** | `min-width: 600px` **且** `orientation: landscape` | 同上（涵蓋手機橫向） |
+
+建議 CSS 範例：
+
+```css
+/* 預設：底欄 */
+.main-nav { bottom: 0; left: 0; right: 0; /* ... */ }
+
+@media (min-width: 768px),
+       (min-width: 600px) and (orientation: landscape) {
+  /* 右側欄 */
+  .main-nav {
+    top: 0; bottom: 0; right: 0; left: auto;
+    width: var(--nav-rail-width, 64px);
+  }
+  body { padding-bottom: 0; padding-right: calc(var(--nav-rail-width, 64px) + env(safe-area-inset-right)); }
+}
+```
+
+### 9.2 其他
+
 | 項目 | 說明 |
 | ---- | ---- |
-| 手機 | 底欄固定；sheet 高度約 70–90vh；內容可捲 |
-| 桌面（≥768px） | 底欄可維持底部，或改頂部次列（同一套 sheet）；sheet 可改置中 Modal（寬 400–480px） |
-| 焦點 | 開啟 sheet 時焦點移入第一個可互動元素；關閉後焦點回到底欄按鈕 |
+| Sheet | 各模式皆用 Bottom Sheet；橫向／桌面不另做置中 Modal |
+| 主內容寬度 | 仍可 `max-width: 900px` 置中；右側欄佔 viewport 右緣，不擠進 900px 欄內 |
+| 焦點 | 開啟 sheet 時焦點移入第一個可互動元素；關閉後焦點回到 `#main-nav` 觸發按鈕 |
 | `aria` | `aria-expanded`、`aria-modal`、`role="dialog"` 於 sheet 面板 |
 
 ---
@@ -344,8 +411,8 @@ let selectedPeople = [];    // Phase 3；Phase 1 仍用 person-select 單值
 
 | 檔案 | Phase 1 | 後續 |
 | ---- | ------- | ---- |
-| `index.html` | 底欄；人員／檢視 sheet；header 匯入 + `#person-summary` | 「更多」sheet、匯出按鈕 |
-| `styles.css` | 底欄、sheet、`.person-summary`、`padding-bottom` | 清單模式、print 樣式 |
+| `index.html` | `#main-nav`（底欄／右側欄）；人員／檢視 sheet；header 匯入 + `#person-summary` | 「更多」sheet、匯出按鈕 |
+| `styles.css` | 響應式 `#main-nav`、sheet、`.person-summary`、`padding-bottom` / `padding-right` | 清單模式、print 樣式 |
 | `src/main.js` | sheet 開關；`updatePersonSummary()` | viewSettings、多選、匯出 |
 | `src/parseShiftWorkbook.js` | 不變 | 不變（除非匯出需額外 API） |
 | `src/export.js`（新建） | — | Phase 4 匯出邏輯 |
@@ -360,3 +427,4 @@ let selectedPeople = [];    // Phase 3；Phase 1 仍用 person-select 單值
 | 2026-05-15 | 初版：底部三鍵方案、Phase 1 遷移步驟、未來功能擺放位置 |
 | 2026-05-15 | 匯入改為常駐 header；Phase 1「更多」暫無反應；匯出仍規劃於「更多」sheet |
 | 2026-05-15 | header 新增 `#person-summary`（`人員：{名稱}`，多選時以頓號串接）；不 sticky |
+| 2026-05-15 | 響應式導航：直向底欄；橫向手機／桌面改**右側**直欄（保留垂直空間）；斷點見 §9 |
