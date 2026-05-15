@@ -316,3 +316,71 @@ body {
   color: #2c3e50;
   border-left: 3px solid #95a5a6;
 }
+
+@media (max-width: 600px) {
+  body {
+    padding: 16px 8px;
+  }
+
+  .app-header h1 {
+    font-size: 1.15rem;
+  }
+
+  .legend {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .legend-item {
+    font-size: 0.72rem;
+  }
+
+  .month-section {
+    margin-bottom: 32px;
+    border-radius: 12px;
+  }
+
+  .month-header {
+    padding: 12px;
+    font-size: 0.95rem;
+  }
+
+  .day-header {
+    padding: 8px 2px;
+    font-size: 0.72rem;
+  }
+
+  .day-cell {
+    min-height: 72px;
+    padding: 4px;
+  }
+
+  .date-num {
+    font-size: 0.76rem;
+    margin-bottom: 3px;
+  }
+
+  .event-card {
+    font-size: 0.62rem;
+    padding: 3px 4px;
+    margin-top: 2px;
+    gap: 2px;
+  }
+
+  .project-name {
+    font-size: 0.66rem;
+  }
+
+  .location-name {
+    font-size: 0.6rem;
+  }
+
+  .raw-name-line {
+    font-size: 0.58rem;
+  }
+
+  .period-line {
+    font-size: 0.56rem;
+    padding: 1px 5px;
+  }
+}
