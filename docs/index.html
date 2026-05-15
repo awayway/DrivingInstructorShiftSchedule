@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>駕訓班總排班表 · 個人月曆</title>
-    <script type="module" crossorigin src="/DrivingInstructorShiftSchedule/assets/index-BJEsT9Um.js"></script>
-    <link rel="stylesheet" crossorigin href="/DrivingInstructorShiftSchedule/assets/index-BiyAe9f7.css">
+    <script type="module" crossorigin src="/DrivingInstructorShiftSchedule/assets/index-2-mgKryy.js"></script>
+    <link rel="stylesheet" crossorigin href="/DrivingInstructorShiftSchedule/assets/index-D-y5daX7.css">
   </head>
   <body>
     <header class="app-header">
@@ -27,8 +27,8 @@
         <button
           type="button"
           class="main-nav__btn"
-          data-sheet="people"
-          aria-controls="sheet-people"
+          data-dialog="people"
+          aria-controls="dialog-people"
           aria-expanded="false"
         >
           人員
@@ -36,53 +36,57 @@
         <button
           type="button"
           class="main-nav__btn"
-          data-sheet="view"
-          aria-controls="sheet-view"
+          data-dialog="view"
+          aria-controls="dialog-view"
           aria-expanded="false"
         >
           檢視
         </button>
-        <button type="button" class="main-nav__btn" data-sheet="more">更多</button>
+        <button type="button" class="main-nav__btn" data-dialog="more">更多</button>
       </div>
     </nav>
 
-    <div id="sheet-overlay" class="sheet-overlay" hidden aria-hidden="true"></div>
-
-    <div
-      id="sheet-people"
-      class="sheet-panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="sheet-people-title"
-      hidden
-    >
-      <header class="sheet-panel__header">
-        <h2 id="sheet-people-title" class="sheet-panel__title">人員</h2>
-        <button type="button" class="sheet-panel__close" aria-label="關閉">×</button>
-      </header>
-      <div class="sheet-panel__body">
-        <label class="person-label" for="person-select">目前人員</label>
-        <select id="person-select" disabled></select>
+    <div id="dialog-overlay" class="dialog-overlay" hidden aria-hidden="true">
+      <div
+        id="dialog-people"
+        class="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-people-title"
+        hidden
+      >
+        <header class="dialog__header">
+          <h2 id="dialog-people-title" class="dialog__title">人員</h2>
+          <button type="button" class="dialog__close" aria-label="關閉">×</button>
+        </header>
+        <div
+          id="person-radio-list"
+          class="dialog__body person-radio-list"
+          role="radiogroup"
+          aria-labelledby="dialog-people-title"
+        >
+          <p id="person-dialog-empty" class="dialog-empty-hint" hidden>請先匯入總排班表</p>
+        </div>
       </div>
-    </div>
 
-    <div
-      id="sheet-view"
-      class="sheet-panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="sheet-view-title"
-      hidden
-    >
-      <header class="sheet-panel__header">
-        <h2 id="sheet-view-title" class="sheet-panel__title">檢視設定</h2>
-        <button type="button" class="sheet-panel__close" aria-label="關閉">×</button>
-      </header>
-      <div class="sheet-panel__body">
-        <label class="month-filter-toggle">
-          <input type="checkbox" id="month-filter-future-only" checked />
-          只顯示本月及未來月份
-        </label>
+      <div
+        id="dialog-view"
+        class="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-view-title"
+        hidden
+      >
+        <header class="dialog__header">
+          <h2 id="dialog-view-title" class="dialog__title">檢視設定</h2>
+          <button type="button" class="dialog__close" aria-label="關閉">×</button>
+        </header>
+        <div class="dialog__body">
+          <label class="month-filter-toggle">
+            <input type="checkbox" id="month-filter-future-only" checked />
+            只顯示本月及未來月份
+          </label>
+        </div>
       </div>
     </div>
 

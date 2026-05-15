@@ -2,28 +2,31 @@ import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 
 const fileInput = document.getElementById('file-input');
 const btnImport = document.getElementById('btn-import');
-const personSelect = document.getElementById('person-select');
 const personSummary = document.getElementById('person-summary');
+const personRadioList = document.getElementById('person-radio-list');
+const personDialogEmpty = document.getElementById('person-dialog-empty');
 const monthFilterFutureOnly = document.getElementById('month-filter-future-only');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
 const mainNav = document.getElementById('main-nav');
-const sheetOverlay = document.getElementById('sheet-overlay');
-const sheetPeople = document.getElementById('sheet-people');
-const sheetView = document.getElementById('sheet-view');
+const dialogOverlay = document.getElementById('dialog-overlay');
+const dialogPeople = document.getElementById('dialog-people');
+const dialogView = document.getElementById('dialog-view');
 
 /** @type {'people' | 'view' | null} */
-let openSheetName = null;
+let openDialogName = null;
 /** @type {HTMLButtonElement | null} */
-let sheetTriggerBtn = null;
+let dialogTriggerBtn = null;
+/** @type {string} */
+let selectedPerson = '';
 
-const SHEETS = {
-  people: sheetPeople,
-  view: sheetView,
+const DIALOGS = {
+  people: dialogPeople,
+  view: dialogView,
 };
 
-const NAV_BTNS = mainNav.querySelectorAll('.main-nav__btn[data-sheet]');
+const NAV_BTNS = mainNav.querySelectorAll('.main-nav__btn[data-dialog]');
 
 const PROJ_CLASSES = [
   'proj-jingzhuan',
@@ -48,24 +51,28 @@ function clearError() {
   errorBanner.textContent = '';
 }
 
+/** @returns {string} */
+function getPersonDisplayName(personKey) {
+  if (personKey === OTHER_KEY) return OTHER_KEY;
+  return personKey;
+}
+
 function updatePersonSummary() {
   if (!personSummary) return;
-  if (!parsed || personSelect.disabled || !personSelect.value) {
+  if (!parsed || !selectedPerson) {
     personSummary.hidden = true;
     personSummary.textContent = '';
     return;
   }
-  const opt = personSelect.selectedOptions[0];
-  const name = opt ? opt.textContent : personSelect.value;
-  personSummary.textContent = `人員：${name}`;
+  personSummary.textContent = `人員：${getPersonDisplayName(selectedPerson)}`;
   personSummary.hidden = false;
 }
 
-function setNavExpanded(sheetName) {
+function setNavExpanded(dialogName) {
   for (const btn of NAV_BTNS) {
-    const key = btn.getAttribute('data-sheet');
+    const key = btn.getAttribute('data-dialog');
     if (key === 'more') continue;
-    btn.setAttribute('aria-expanded', key === sheetName ? 'true' : 'false');
+    btn.setAttribute('aria-expanded', key === dialogName ? 'true' : 'false');
   }
 }
 
@@ -73,36 +80,38 @@ function setNavExpanded(sheetName) {
  * @param {'people' | 'view'} name
  * @param {HTMLButtonElement} [triggerBtn]
  */
-function openSheet(name, triggerBtn) {
-  if (openSheetName === name) {
-    closeAllSheets();
+function openDialog(name, triggerBtn) {
+  if (openDialogName === name) {
+    closeAllDialogs();
     return;
   }
-  closeAllSheets();
-  const panel = SHEETS[name];
+  closeAllDialogs();
+  const panel = DIALOGS[name];
   if (!panel) return;
-  openSheetName = name;
-  sheetTriggerBtn = triggerBtn || null;
-  sheetOverlay.hidden = false;
-  sheetOverlay.setAttribute('aria-hidden', 'false');
+  openDialogName = name;
+  dialogTriggerBtn = triggerBtn || null;
+  dialogOverlay.hidden = false;
+  dialogOverlay.setAttribute('aria-hidden', 'false');
   panel.hidden = false;
-  document.body.classList.add('sheet-open');
+  document.body.classList.add('dialog-open');
   setNavExpanded(name);
-  const focusTarget = panel.querySelector('select, input, button');
+  const focusTarget = panel.querySelector(
+    'input:not([disabled]), button.dialog__close'
+  );
   if (focusTarget instanceof HTMLElement) focusTarget.focus();
 }
 
-function closeAllSheets() {
-  openSheetName = null;
-  sheetOverlay.hidden = true;
-  sheetOverlay.setAttribute('aria-hidden', 'true');
-  sheetPeople.hidden = true;
-  sheetView.hidden = true;
-  document.body.classList.remove('sheet-open');
+function closeAllDialogs() {
+  openDialogName = null;
+  dialogOverlay.hidden = true;
+  dialogOverlay.setAttribute('aria-hidden', 'true');
+  dialogPeople.hidden = true;
+  dialogView.hidden = true;
+  document.body.classList.remove('dialog-open');
   setNavExpanded(null);
-  if (sheetTriggerBtn) {
-    sheetTriggerBtn.focus();
-    sheetTriggerBtn = null;
+  if (dialogTriggerBtn) {
+    dialogTriggerBtn.focus();
+    dialogTriggerBtn = null;
   }
 }
 
@@ -308,7 +317,7 @@ function renderCalendar() {
     return;
   }
   updatePersonSummary();
-  const key = personSelect.value;
+  const key = selectedPerson;
   const allMonths = collectMonths(key);
   if (!allMonths.length) {
     const p = document.createElement('p');
@@ -342,7 +351,7 @@ function fillLegend() {
     return;
   }
   const projects = new Set();
-  const key = personSelect.value;
+  const key = selectedPerson;
   const sched = parsed.byPerson[key] || {};
   for (const day of Object.values(sched)) {
     for (const ev of day) projects.add(ev.project);
@@ -362,25 +371,67 @@ function fillLegend() {
   legendEl.hidden = legendEl.childElementCount === 0;
 }
 
-function fillPersonSelect() {
-  personSelect.innerHTML = '';
+/**
+ * @param {string} value
+ * @param {string} label
+ */
+function appendPersonRadio(value, label) {
+  const el = document.createElement('label');
+  el.className = 'person-radio';
+  const input = document.createElement('input');
+  input.type = 'radio';
+  input.name = 'current-person';
+  input.value = value;
+  if (value === selectedPerson) input.checked = true;
+  const span = document.createElement('span');
+  span.textContent = label;
+  el.appendChild(input);
+  el.appendChild(span);
+  personRadioList.appendChild(el);
+}
+
+function fillPersonRadios() {
+  personRadioList
+    .querySelectorAll('.person-radio')
+    .forEach((el) => el.remove());
+
   if (!parsed) {
-    personSelect.disabled = true;
+    selectedPerson = '';
+    personDialogEmpty.hidden = false;
     return;
   }
-  for (const name of parsed.people) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    personSelect.appendChild(opt);
+
+  personDialogEmpty.hidden = true;
+  const names = [...parsed.people];
+  if (!selectedPerson || !names.includes(selectedPerson)) {
+    if (selectedPerson !== OTHER_KEY) {
+      selectedPerson = names[0] || OTHER_KEY;
+    }
   }
-  const other = document.createElement('option');
-  other.value = OTHER_KEY;
-  other.textContent = OTHER_KEY;
-  personSelect.appendChild(other);
-  personSelect.disabled = false;
-  personSelect.value = parsed.people[0] || OTHER_KEY;
+
+  for (const name of names) {
+    appendPersonRadio(name, name);
+  }
+  appendPersonRadio(OTHER_KEY, OTHER_KEY);
+
+  const checked = personRadioList.querySelector(
+    `input[name="current-person"][value="${CSS.escape(selectedPerson)}"]`
+  );
+  if (checked instanceof HTMLInputElement) checked.checked = true;
+
   updatePersonSummary();
+}
+
+function onPersonRadioChange() {
+  const checked = personRadioList.querySelector(
+    'input[name="current-person"]:checked'
+  );
+  if (!(checked instanceof HTMLInputElement)) return;
+  selectedPerson = checked.value;
+  fillLegend();
+  renderCalendar();
+  updatePersonSummary();
+  closeAllDialogs();
 }
 
 async function onFile(file) {
@@ -389,14 +440,14 @@ async function onFile(file) {
   try {
     const buf = await file.arrayBuffer();
     parsed = parseShiftWorkbook(buf);
-    fillPersonSelect();
+    fillPersonRadios();
     fillLegend();
     renderCalendar();
     updatePersonSummary();
   } catch (e) {
     parsed = null;
-    personSelect.innerHTML = '';
-    personSelect.disabled = true;
+    selectedPerson = '';
+    fillPersonRadios();
     calendarRoot.innerHTML = '';
     legendEl.hidden = true;
     updatePersonSummary();
@@ -412,11 +463,10 @@ fileInput.addEventListener('change', () => {
   fileInput.value = '';
 });
 
-personSelect.addEventListener('change', () => {
-  fillLegend();
-  renderCalendar();
-  updatePersonSummary();
-  closeAllSheets();
+personRadioList.addEventListener('change', (e) => {
+  if (e.target instanceof HTMLInputElement && e.target.name === 'current-person') {
+    onPersonRadioChange();
+  }
 });
 
 monthFilterFutureOnly.addEventListener('change', () => {
@@ -425,25 +475,28 @@ monthFilterFutureOnly.addEventListener('change', () => {
 
 for (const btn of NAV_BTNS) {
   btn.addEventListener('click', () => {
-    const sheet = btn.getAttribute('data-sheet');
-    if (sheet === 'more') return;
-    if (sheet === 'people' || sheet === 'view') {
-      openSheet(sheet, btn);
+    const dialog = btn.getAttribute('data-dialog');
+    if (dialog === 'more') return;
+    if (dialog === 'people' || dialog === 'view') {
+      openDialog(dialog, btn);
     }
   });
 }
 
-sheetOverlay.addEventListener('click', closeAllSheets);
+dialogOverlay.addEventListener('click', (e) => {
+  if (e.target === dialogOverlay) closeAllDialogs();
+});
 
-for (const panel of [sheetPeople, sheetView]) {
+for (const panel of [dialogPeople, dialogView]) {
   panel.addEventListener('click', (e) => e.stopPropagation());
-  const closeBtn = panel.querySelector('.sheet-panel__close');
-  closeBtn?.addEventListener('click', closeAllSheets);
+  const closeBtn = panel.querySelector('.dialog__close');
+  closeBtn?.addEventListener('click', closeAllDialogs);
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && openSheetName) closeAllSheets();
+  if (e.key === 'Escape' && openDialogName) closeAllDialogs();
 });
 
+fillPersonRadios();
 renderEmptyHint();
 updatePersonSummary();

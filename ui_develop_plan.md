@@ -290,14 +290,14 @@
 - 若部署 `docs/`：執行 build 後同步靜態輸出
 - **不**變更：`src/parseShiftWorkbook.js`、解析資料模型
 
-### 4.8 Phase 1 修訂：Sheet → Dialog（待實作）
+### 4.8 Phase 1 修訂：Sheet → Dialog（✅ 已實作）
 
-| 項目 | 初版（已實作） | 修訂定案（待改 code） |
-| ---- | -------------- | --------------------- |
-| 面板 | Bottom Sheet 貼底 | **置中 Dialog** |
-| 人員選擇 | `<select>` 於 sheet 內 | **Radio 清單**，點「人員」即可選 |
-| DOM id | `#sheet-people`、`#sheet-view` | 建議改 `#dialog-people`、`#dialog-view`（或保留 id 僅改 class／行為） |
-| JS API | `openSheet` / `closeAllSheets` | `openDialog` / `closeAllDialogs` |
+| 項目 | 初版 | 目前程式 |
+| ---- | ---- | -------- |
+| 面板 | Bottom Sheet 貼底 | **置中 Dialog**（`#dialog-overlay` + flex 置中） |
+| 人員選擇 | `<select>` 於 sheet 內 | **`#person-radio-list` radio 清單**，選完即關閉 |
+| DOM id | `#sheet-people`、`#sheet-view` | `#dialog-people`、`#dialog-view` |
+| JS API | `openSheet` / `closeAllSheets` | `openDialog` / `closeAllDialogs`、`selectedPerson` |
 
 ---
 
@@ -497,3 +497,4 @@ let selectedPeople = [];    // Phase 3；Phase 1 用 selectedPerson 單值（rad
 | 2026-05-15 | header 新增 `#person-summary`（`人員：{名稱}`，多選時以頓號串接）；不 sticky |
 | 2026-05-15 | 響應式導航：直向底欄；橫向手機／桌面改**右側**直欄（保留垂直空間）；斷點見 §9 |
 | 2026-05-15 | **面板改置中 Dialog**（不用 Bottom Sheet）；人員改 **radio 清單**（不用 dialog 內 select）；檢視亦用置中 dialog；§4.8 對照初版實作 |
+| 2026-05-15 | Dialog + radio **已實作**於 `index.html`、`styles.css`、`main.js` |
