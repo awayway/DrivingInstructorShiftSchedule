@@ -282,6 +282,20 @@ body.dialog-open {
   -webkit-overflow-scrolling: touch;
 }
 
+.view-settings-section + .view-settings-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #e8e3dc;
+}
+
+.view-settings-section__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5c5c5c;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
 .dialog__body .month-filter-toggle {
   display: flex;
   align-items: flex-start;

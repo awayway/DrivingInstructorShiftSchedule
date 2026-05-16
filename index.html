@@ -91,14 +91,33 @@
           <button type="button" class="dialog__close" aria-label="關閉">×</button>
         </header>
         <div class="dialog__body">
-          <label class="month-filter-toggle">
-            <input type="checkbox" id="month-filter-future-only" checked />
-            只顯示本月及未來月份
-          </label>
-          <label class="month-filter-toggle">
-            <input type="checkbox" id="show-empty-months" checked />
-            顯示無資料月份
-          </label>
+          <section
+            class="view-settings-section"
+            aria-labelledby="view-section-month-range"
+          >
+            <h3 id="view-section-month-range" class="view-settings-section__title">
+              【月份範圍】
+            </h3>
+            <label class="month-filter-toggle">
+              <input type="checkbox" id="month-filter-future-only" checked />
+              只顯示本月及未來月份
+            </label>
+            <label class="month-filter-toggle">
+              <input type="checkbox" id="show-empty-months" checked />
+              顯示空白月份
+            </label>
+          </section>
+          <section class="view-settings-section" aria-labelledby="view-section-card">
+            <h3 id="view-section-card" class="view-settings-section__title">【卡片內容】</h3>
+            <label class="month-filter-toggle">
+              <input type="checkbox" id="view-show-location" checked />
+              顯示地點
+            </label>
+            <label class="month-filter-toggle">
+              <input type="checkbox" id="view-show-period" checked />
+              顯示期別
+            </label>
+          </section>
         </div>
       </div>
     </div>

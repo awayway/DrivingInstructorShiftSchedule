@@ -8,6 +8,8 @@ const personRadioList = document.getElementById('person-radio-list');
 const personDialogEmpty = document.getElementById('person-dialog-empty');
 const monthFilterFutureOnly = document.getElementById('month-filter-future-only');
 const showEmptyMonths = document.getElementById('show-empty-months');
+const viewShowLocation = document.getElementById('view-show-location');
+const viewShowPeriod = document.getElementById('view-show-period');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
@@ -162,13 +164,15 @@ function fillEventCard(card, ev, personKey) {
   projectEl.className = 'project-name';
   projectEl.textContent = ev.project;
   card.appendChild(projectEl);
-  if (ev.location) {
+  const showLocation = viewShowLocation ? viewShowLocation.checked : true;
+  const showPeriod = viewShowPeriod ? viewShowPeriod.checked : true;
+  if (showLocation && ev.location) {
     const locEl = document.createElement('div');
     locEl.className = 'location-name';
     locEl.textContent = ev.location;
     card.appendChild(locEl);
   }
-  if (ev.period) {
+  if (showPeriod && ev.period) {
     const periodEl = document.createElement('span');
     periodEl.className = 'period-line';
     periodEl.textContent = ev.period;
@@ -556,6 +560,14 @@ monthFilterFutureOnly.addEventListener('change', () => {
 });
 
 showEmptyMonths?.addEventListener('change', () => {
+  renderCalendar();
+});
+
+viewShowLocation?.addEventListener('change', () => {
+  renderCalendar();
+});
+
+viewShowPeriod?.addEventListener('change', () => {
   renderCalendar();
 });
 
