@@ -245,7 +245,27 @@ export function parseShiftWorkbook(arrayBuffer) {
 
   /** @type {Record<string, Record<string, Array<{ project: string, location: string, period: string | null, rawName?: string }>>>} */
   const byPerson = {};
+  /** @type {Map<string, Set<string>>} */
+  const seenEventKeys = new Map();
+
+  /** 同日同人（「其他」含 rawName）同專案／地點／期別僅保留一筆 */
+  function eventDedupKey(ev) {
+    const period = ev.period ?? '';
+    const raw = ev.rawName ?? '';
+    return `${ev.project}\x1e${ev.location}\x1e${period}\x1e${raw}`;
+  }
+
   function pushEvent(personKey, dateStr, ev) {
+    const bucketKey = `${personKey}\x1f${dateStr}`;
+    let keys = seenEventKeys.get(bucketKey);
+    if (!keys) {
+      keys = new Set();
+      seenEventKeys.set(bucketKey, keys);
+    }
+    const dk = eventDedupKey(ev);
+    if (keys.has(dk)) return;
+    keys.add(dk);
+
     if (!byPerson[personKey]) byPerson[personKey] = {};
     if (!byPerson[personKey][dateStr]) byPerson[personKey][dateStr] = [];
     byPerson[personKey][dateStr].push(ev);
