@@ -2,7 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
+  buildPersonIndex,
   isScheduleDateNote,
+  resolveAssignmentToken,
   splitAssignmentTokens,
 } from '../src/resolvePersonNames.js';
 import { parseShiftWorkbook, OTHER_KEY } from '../src/parseShiftWorkbook.js';
@@ -23,6 +25,38 @@ console.assert(
   'date note should not split'
 );
 console.assert(isScheduleDateNote('3/23只有下午'), 'date note detect');
+
+// --- resolve: 考試一前綴 + 複合人名（先 normalize 再 blacklist）---
+const headerPeople = [
+  '俊穎',
+  '林欣瑩',
+  '駿',
+  '維鈞',
+  '鴨子',
+  '林威',
+  '呂小遠',
+];
+const personIndex = buildPersonIndex(headerPeople);
+const headerToCanonical = new Map(headerPeople.map((p) => [p, p]));
+
+const examCombo = resolveAssignmentToken(
+  '考試一俊瑩',
+  personIndex,
+  headerToCanonical
+);
+console.assert(examCombo.type === 'person', '考試一俊瑩 should resolve as person');
+console.assert(
+  examCombo.people.join(',') === '俊穎,林欣瑩',
+  '考試一俊瑩 -> 俊穎+林欣瑩'
+);
+console.assert(
+  resolveAssignmentToken('考試一', personIndex, headerToCanonical).type === 'other',
+  '考試一 alone -> 其他'
+);
+console.assert(
+  resolveAssignmentToken('期中考', personIndex, headerToCanonical).type === 'other',
+  '期中考 -> 其他'
+);
 
 // --- shiftTotalTable0515_01 ---
 const buf = loadXlsx('shiftTotalTable0515_01.xlsx');
@@ -67,5 +101,18 @@ console.assert((rawSet.get('鴨') || 0) === 0, '鴨 should map to 鴨子 not 其
 const jingli = rawSet.get('經理') || 0;
 console.log('經理 in 其他', jingli);
 console.assert(jingli > 0, '經理 should remain in 其他 as displayable name');
+
+console.assert(
+  (rawSet.get('考試一俊瑩') || 0) === 0,
+  '考試一俊瑩 should not stay in 其他'
+);
+const jyExam = (byPerson['俊穎']?.['2026-03-16'] || []).some(
+  (ev) => ev.rawName === '考試一俊瑩'
+);
+const xyExam = (byPerson['林欣瑩']?.['2026-03-16'] || []).some(
+  (ev) => ev.rawName === '考試一俊瑩'
+);
+console.assert(jyExam, '俊穎 has 考試一俊瑩 on 2026-03-16');
+console.assert(xyExam, '林欣瑩 has 考試一俊瑩 on 2026-03-16');
 
 console.log('parse-test OK');

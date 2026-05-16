@@ -274,8 +274,6 @@ export function resolveAssignmentToken(token, index, headerToCanonical) {
     }
   }
 
-  if (isNonPersonNote(raw)) return { type: 'other', rawName: raw };
-
   const norm = normalizeTokenForResolve(raw);
   if (!norm) return { type: 'other', rawName: raw };
 
