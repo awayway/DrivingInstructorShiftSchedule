@@ -10,6 +10,7 @@ const monthFilterFutureOnly = document.getElementById('month-filter-future-only'
 const showEmptyMonths = document.getElementById('show-empty-months');
 const viewShowLocation = document.getElementById('view-show-location');
 const viewShowPeriod = document.getElementById('view-show-period');
+const viewShowAlias = document.getElementById('view-show-alias');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
@@ -170,9 +171,11 @@ function pad(n) {
  * @param {string} personKey
  */
 function fillEventCard(card, ev, personKey) {
+  const showAlias = viewShowAlias ? viewShowAlias.checked : true;
   if (
     ev.rawName &&
-    (personKey === OTHER_KEY || ev.rawName.trim() !== personKey.trim())
+    (personKey === OTHER_KEY ||
+      (showAlias && ev.rawName.trim() !== personKey.trim()))
   ) {
     const raw = document.createElement('div');
     raw.className = 'raw-name-line';
@@ -589,6 +592,10 @@ viewShowLocation?.addEventListener('change', () => {
 });
 
 viewShowPeriod?.addEventListener('change', () => {
+  renderCalendar();
+});
+
+viewShowAlias?.addEventListener('change', () => {
   renderCalendar();
 });
 
