@@ -11,6 +11,9 @@ const showEmptyMonths = document.getElementById('show-empty-months');
 const viewShowLocation = document.getElementById('view-show-location');
 const viewShowPeriod = document.getElementById('view-show-period');
 const viewShowAlias = document.getElementById('view-show-alias');
+const viewShowSameProjectPeers = document.getElementById(
+  'view-show-same-project-peers'
+);
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
@@ -166,11 +169,53 @@ function pad(n) {
 }
 
 /**
+ * 同日同專案、排除目前人員；清單內人員依 people 順序，「其他」以 rawName、zh-Hant 排序。
+ * @param {string} dateStr
+ * @param {string} project
+ * @param {string} currentPersonKey
+ * @returns {string[]}
+ */
+function findSameProjectPeers(dateStr, project, currentPersonKey) {
+  if (!parsed) return [];
+  const projectKey = project.trim();
+  if (!projectKey) return [];
+
+  const listPeople = new Set();
+  const otherNames = new Set();
+
+  for (const personKey of [...parsed.people, OTHER_KEY]) {
+    if (personKey === currentPersonKey) continue;
+    const dayEvents = parsed.byPerson[personKey]?.[dateStr];
+    if (!dayEvents?.length) continue;
+
+    for (const ev of dayEvents) {
+      if (ev.project?.trim() !== projectKey) continue;
+      if (personKey === OTHER_KEY) {
+        const raw = ev.rawName?.trim();
+        if (raw) otherNames.add(raw);
+      } else {
+        listPeople.add(personKey);
+      }
+    }
+  }
+
+  const out = [];
+  for (const name of parsed.people) {
+    if (listPeople.has(name)) out.push(name);
+  }
+  out.push(
+    ...[...otherNames].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+  );
+  return out;
+}
+
+/**
  * @param {HTMLDivElement} card
  * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
  * @param {string} personKey
+ * @param {string} dateStr
  */
-function fillEventCard(card, ev, personKey) {
+function fillEventCard(card, ev, personKey, dateStr) {
   const showAlias = viewShowAlias ? viewShowAlias.checked : true;
   if (
     ev.rawName &&
@@ -199,6 +244,19 @@ function fillEventCard(card, ev, personKey) {
     periodEl.className = 'period-line';
     periodEl.textContent = ev.period;
     card.appendChild(periodEl);
+  }
+
+  const showPeers = viewShowSameProjectPeers
+    ? viewShowSameProjectPeers.checked
+    : true;
+  if (showPeers) {
+    const peers = findSameProjectPeers(dateStr, ev.project, personKey);
+    if (peers.length) {
+      const peersEl = document.createElement('div');
+      peersEl.className = 'same-project-peers-line';
+      peersEl.textContent = peers.join('、');
+      card.appendChild(peersEl);
+    }
   }
 }
 
@@ -288,7 +346,7 @@ function buildMonth(year, month, label, personKey) {
           const card = document.createElement('div');
           const cls = projectClass(ev.project);
           card.className = `event-card ${cls}`;
-          fillEventCard(card, ev, personKey);
+          fillEventCard(card, ev, personKey, dateStr);
           cell.appendChild(card);
         }
       }
@@ -596,6 +654,10 @@ viewShowPeriod?.addEventListener('change', () => {
 });
 
 viewShowAlias?.addEventListener('change', () => {
+  renderCalendar();
+});
+
+viewShowSameProjectPeers?.addEventListener('change', () => {
   renderCalendar();
 });
 

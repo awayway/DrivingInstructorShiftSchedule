@@ -578,6 +578,18 @@ body.dialog-open {
   word-break: break-word;
 }
 
+.same-project-peers-line {
+  margin-top: 2px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.62rem;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0.78;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .proj-jingzhuan {
   background: #d6eaf8;
   color: #1a5276;
@@ -705,5 +717,11 @@ body.dialog-open {
   .period-line {
     font-size: 0.56rem;
     padding: 1px 5px;
+  }
+
+  .same-project-peers-line {
+    font-size: 0.56rem;
+    margin-top: 1px;
+    padding-top: 2px;
   }
 }
