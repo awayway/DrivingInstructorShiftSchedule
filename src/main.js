@@ -32,7 +32,8 @@ const DIALOGS = {
 
 const NAV_BTNS = mainNav.querySelectorAll('.main-nav__btn[data-dialog]');
 
-const PROJ_CLASSES = [
+/** 依專案名稱排序後依序指派，確保同一工作簿內各色不重複 */
+const PROJECT_COLOR_PALETTE = [
   'proj-jingzhuan',
   'proj-jingdaxue',
   'proj-jingzhengpu',
@@ -40,7 +41,11 @@ const PROJ_CLASSES = [
   'proj-mute-b',
   'proj-mute-c',
   'proj-mute-d',
+  'proj-default',
 ];
+
+/** @type {Map<string, string>} */
+const projectClassMap = new Map();
 
 /** @type {{ people: string[], byPerson: Record<string, Record<string, Array<{ project: string, location: string, period: string | null, rawName?: string }>>> } | null} */
 let parsed = null;
@@ -128,20 +133,31 @@ function renderEmptyHint() {
   calendarRoot.appendChild(p);
 }
 
-function hashProject(project) {
-  let h = 0;
-  for (let i = 0; i < project.length; i++) {
-    h = (h * 31 + project.charCodeAt(i)) | 0;
+function rebuildProjectClassMap() {
+  projectClassMap.clear();
+  if (!parsed) return;
+  const projects = new Set();
+  for (const sched of Object.values(parsed.byPerson)) {
+    for (const day of Object.values(sched)) {
+      for (const ev of day) {
+        const name = ev.project?.trim();
+        if (name) projects.add(name);
+      }
+    }
   }
-  return Math.abs(h);
+  [...projects]
+    .sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+    .forEach((name, index) => {
+      const cls =
+        PROJECT_COLOR_PALETTE[index] ??
+        PROJECT_COLOR_PALETTE[PROJECT_COLOR_PALETTE.length - 1];
+      projectClassMap.set(name, cls);
+    });
 }
 
 function projectClass(project) {
   const key = project.trim();
-  if (key.includes('警專')) return 'proj-jingzhuan';
-  if (key.includes('警察大學') || key.includes('警大')) return 'proj-jingdaxue';
-  if (key.includes('警政署') || key.includes('普機')) return 'proj-jingzhengpu';
-  return PROJ_CLASSES[hashProject(key) % PROJ_CLASSES.length];
+  return projectClassMap.get(key) ?? 'proj-default';
 }
 
 function pad(n) {
@@ -523,12 +539,14 @@ async function onFile(file) {
   try {
     const buf = await file.arrayBuffer();
     parsed = parseShiftWorkbook(buf);
+    rebuildProjectClassMap();
     fillPersonRadios();
     fillLegend();
     renderCalendar();
     updatePersonSummary();
   } catch (e) {
     parsed = null;
+    projectClassMap.clear();
     selectedPerson = '';
     fillPersonRadios();
     calendarRoot.innerHTML = '';
