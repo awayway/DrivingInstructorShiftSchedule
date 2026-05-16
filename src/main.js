@@ -154,7 +154,10 @@ function pad(n) {
  * @param {string} personKey
  */
 function fillEventCard(card, ev, personKey) {
-  if (personKey === OTHER_KEY && ev.rawName) {
+  if (
+    ev.rawName &&
+    (personKey === OTHER_KEY || ev.rawName.trim() !== personKey.trim())
+  ) {
     const raw = document.createElement('div');
     raw.className = 'raw-name-line';
     raw.textContent = ev.rawName;

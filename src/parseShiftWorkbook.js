@@ -1,4 +1,12 @@
 import * as XLSX from 'xlsx';
+import {
+  buildPersonIndex,
+  canonicalPersonKey,
+  dedupePeopleToCanonical,
+  rawNameForEvent,
+  resolveAssignmentToken,
+  splitAssignmentTokens,
+} from './resolvePersonNames.js';
 
 export const OTHER_KEY = '其他';
 
@@ -32,7 +40,6 @@ function serialToYMD(serial) {
 /** @param {unknown} v */
 function cellToYMD(v) {
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
-    // SheetJS 常把「試算表上該曆日」存成本地午夜對應的 Date，用本地分量才與 Excel 畫面一致
     return `${v.getFullYear()}-${pad2(v.getMonth() + 1)}-${pad2(v.getDate())}`;
   }
   if (typeof v === 'number' && v > 20000 && v < 80000) {
@@ -90,9 +97,6 @@ function buildColumnIslands(endCol, dateCol) {
 }
 
 /**
- * 期別僅來自「專案欄左側」：取同島內、欄索引小於 c 之最右一欄第 1 列為「期別」者。
- * 若左側存在「另一專案欄」且兩專案欄之間（不含兩端）沒有任何第 1 列為「期別」的欄，則本專案欄不帶期別（null）。
- *
  * @param {number[]} islandCols
  * @param {unknown[][]} grid
  * @param {number} c
@@ -142,22 +146,6 @@ function periodForColumn(islandCols, grid, c, r, personCol, dateCol) {
     if (h0(col) === '期別') return grid[r][col];
   }
   return null;
-}
-
-/**
- * @param {unknown} raw
- * @param {Set<string> | undefined} knownNames 若整格字串與某位教練姓名完全一致，則不再依句點等符號拆開（避免「駿.」被拆成「駿」誤配到另一欄）
- * @returns {string[]}
- */
-function splitAssignmentTokens(raw, knownNames) {
-  if (raw == null) return [];
-  const s = String(raw).trim();
-  if (!s) return [];
-  if (knownNames && knownNames.has(s)) return [s];
-  return s
-    .split(/[,./、／]+/)
-    .map((x) => x.trim())
-    .filter(Boolean);
 }
 
 /**
@@ -212,8 +200,11 @@ export function parseShiftWorkbook(arrayBuffer) {
 
   const personCol = new Set();
   /** @type {string[]} */
-  const people = [];
-  const seen = new Set();
+  const rawHeaderPeople = [];
+  /** @type {Map<string, string>} */
+  const headerToCanonical = new Map();
+  const knownNames = new Set();
+
   for (let c = 0; c <= range.e.c; c++) {
     if (grid[0][c] === '期別') continue;
     if (!isNumericLike(grid[1][c])) continue;
@@ -228,13 +219,14 @@ export function parseShiftWorkbook(arrayBuffer) {
     const name = grid[0][c] != null ? String(grid[0][c]).trim() : '';
     if (!name) continue;
     personCol.add(c);
-    if (!seen.has(name)) {
-      seen.add(name);
-      people.push(name);
-    }
+    rawHeaderPeople.push(name);
+    knownNames.add(name);
+    headerToCanonical.set(name, canonicalPersonKey(name));
   }
 
-  const peopleSet = new Set(people);
+  const people = dedupePeopleToCanonical(rawHeaderPeople);
+  const personIndex = buildPersonIndex(people);
+
   const firstPersonCol = personCol.size ? Math.min(...personCol) : range.e.c + 1;
   const lastAssignCol = Math.max(FIRST_COL, firstPersonCol - 1);
   const islands = buildColumnIslands(lastAssignCol, dateCol);
@@ -255,6 +247,11 @@ export function parseShiftWorkbook(arrayBuffer) {
     return `${ev.project}\x1e${ev.location}\x1e${period}\x1e${raw}`;
   }
 
+  /**
+   * @param {string} personKey
+   * @param {string} dateStr
+   * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+   */
   function pushEvent(personKey, dateStr, ev) {
     const bucketKey = `${personKey}\x1f${dateStr}`;
     let keys = seenEventKeys.get(bucketKey);
@@ -299,22 +296,39 @@ export function parseShiftWorkbook(arrayBuffer) {
       if (typeof rawCell === 'number' && isNumericLike(rawCell)) continue;
       if (typeof rawCell === 'string' && isNumericLike(rawCell)) continue;
 
-      const tokens = splitAssignmentTokens(rawCell, peopleSet);
+      const tokens = splitAssignmentTokens(rawCell, knownNames);
       if (!tokens.length) continue;
 
       for (const token of tokens) {
-        if (peopleSet.has(token)) {
-          pushEvent(token, dateStr, {
-            project,
-            location,
-            period: periodVal,
-          });
-        } else {
+        const resolved = resolveAssignmentToken(token, personIndex, headerToCanonical);
+
+        if (resolved.type === 'other') {
           pushEvent(OTHER_KEY, dateStr, {
             project,
             location,
             period: periodVal,
-            rawName: token,
+            rawName: resolved.rawName,
+          });
+          continue;
+        }
+
+        for (const person of resolved.people) {
+          const rn = rawNameForEvent(resolved.rawName, person);
+          const ev = {
+            project,
+            location,
+            period: periodVal,
+            ...(rn != null ? { rawName: rn } : {}),
+          };
+          pushEvent(person, dateStr, ev);
+        }
+
+        if (resolved.partialRest) {
+          pushEvent(OTHER_KEY, dateStr, {
+            project,
+            location,
+            period: periodVal,
+            rawName: resolved.partialRest,
           });
         }
       }
