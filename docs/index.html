@@ -4,18 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>駕訓班總排班表 · 個人月曆</title>
-    <script type="module" crossorigin src="/DrivingInstructorShiftSchedule/assets/index-B_2WEkz_.js"></script>
-    <link rel="stylesheet" crossorigin href="/DrivingInstructorShiftSchedule/assets/index-CT-4jXBW.css">
+    <script type="module" crossorigin src="/DrivingInstructorShiftSchedule/assets/index-BIfdrszW.js"></script>
+    <link rel="stylesheet" crossorigin href="/DrivingInstructorShiftSchedule/assets/index-BCF1TRpC.css">
   </head>
   <body>
     <header class="app-header">
       <h1>總排班表 · 個人月曆</h1>
       <p class="subtitle">檔案僅在瀏覽器解析，不會上傳至伺服器</p>
-      <p id="person-summary" class="person-summary" hidden></p>
       <div class="toolbar">
         <input id="file-input" type="file" accept=".xlsx,.xls" hidden />
         <button type="button" id="btn-import" class="btn-primary">匯入總排班表</button>
       </div>
+      <button
+        type="button"
+        id="person-summary"
+        class="person-summary"
+        hidden
+        aria-haspopup="dialog"
+        aria-controls="dialog-people"
+      >
+        <span class="person-summary__text"></span>
+        <span class="person-summary__chevron" aria-hidden="true"></span>
+      </button>
       <p id="error-banner" class="error-banner" hidden></p>
     </header>
 

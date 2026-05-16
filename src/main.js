@@ -3,6 +3,7 @@ import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 const fileInput = document.getElementById('file-input');
 const btnImport = document.getElementById('btn-import');
 const personSummary = document.getElementById('person-summary');
+const personSummaryLabel = personSummary?.querySelector('.person-summary__text') ?? null;
 const personRadioList = document.getElementById('person-radio-list');
 const personDialogEmpty = document.getElementById('person-dialog-empty');
 const monthFilterFutureOnly = document.getElementById('month-filter-future-only');
@@ -59,13 +60,13 @@ function getPersonDisplayName(personKey) {
 }
 
 function updatePersonSummary() {
-  if (!personSummary) return;
+  if (!personSummary || !personSummaryLabel) return;
   if (!parsed || !selectedPerson) {
     personSummary.hidden = true;
-    personSummary.textContent = '';
+    personSummaryLabel.textContent = '';
     return;
   }
-  personSummary.textContent = `人員：${getPersonDisplayName(selectedPerson)}`;
+  personSummaryLabel.textContent = `人員：${getPersonDisplayName(selectedPerson)}`;
   personSummary.hidden = false;
 }
 
@@ -537,6 +538,12 @@ fileInput.addEventListener('change', () => {
   onFile(f);
   fileInput.value = '';
 });
+
+if (personSummary instanceof HTMLButtonElement) {
+  personSummary.addEventListener('click', () => {
+    openDialog('people', personSummary);
+  });
+}
 
 personRadioList.addEventListener('change', (e) => {
   if (e.target instanceof HTMLInputElement && e.target.name === 'current-person') {
