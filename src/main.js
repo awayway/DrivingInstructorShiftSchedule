@@ -16,6 +16,10 @@ import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 
 const fileInput = document.getElementById('file-input');
 const btnImport = document.getElementById('btn-import');
+const scheduleSource = document.getElementById('schedule-source');
+const scheduleSourceName = document.getElementById('schedule-source-name');
+const scheduleSourceBadge = document.getElementById('schedule-source-badge');
+const scheduleLoading = document.getElementById('schedule-loading');
 const personSummary = document.getElementById('person-summary');
 const personSummaryLabel = personSummary?.querySelector('.person-summary__text') ?? null;
 const personRadioList = document.getElementById('person-radio-list');
@@ -91,6 +95,10 @@ let compareResult = null;
 let compareDialogError = '';
 /** @type {boolean} */
 let baselineParsing = false;
+/** @type {string} */
+let currentScheduleFileName = '';
+/** @type {'auto' | 'manual' | null} */
+let currentScheduleSource = null;
 
 function showError(msg) {
   errorBanner.textContent = msg;
@@ -100,6 +108,122 @@ function showError(msg) {
 function clearError() {
   errorBanner.hidden = true;
   errorBanner.textContent = '';
+}
+
+/** @returns {string} */
+function normalizeBaseUrl() {
+  const base = import.meta.env.BASE_URL || '/';
+  return base.endsWith('/') ? base : `${base}/`;
+}
+
+function updateScheduleSourceUi() {
+  if (
+    !scheduleSource ||
+    !scheduleSourceName ||
+    !scheduleSourceBadge
+  ) {
+    return;
+  }
+  if (!parsed || !currentScheduleFileName) {
+    scheduleSource.hidden = true;
+    scheduleSourceName.textContent = '';
+    scheduleSourceName.removeAttribute('title');
+    scheduleSourceBadge.hidden = true;
+    return;
+  }
+  scheduleSourceName.textContent = currentScheduleFileName;
+  scheduleSourceName.title = currentScheduleFileName;
+  scheduleSourceBadge.hidden = currentScheduleSource !== 'auto';
+  scheduleSource.hidden = false;
+}
+
+/** @param {boolean} loading */
+function setScheduleBootstrapLoading(loading) {
+  if (scheduleLoading) scheduleLoading.hidden = !loading;
+  calendarRoot.hidden = loading;
+}
+
+function resetParsedState() {
+  parsed = null;
+  currentScheduleFileName = '';
+  currentScheduleSource = null;
+  projectClassMap.clear();
+  selectedPerson = '';
+  fillPersonRadios();
+  calendarRoot.innerHTML = '';
+  legendEl.hidden = true;
+  updatePersonSummary();
+  updateScheduleSourceUi();
+  refreshDiffUi();
+}
+
+/**
+ * @param {ArrayBuffer} buf
+ * @param {{ fileName: string, source: 'auto' | 'manual' }} opts
+ */
+function loadScheduleFromArrayBuffer(buf, { fileName, source }) {
+  clearError();
+  try {
+    parsed = parseShiftWorkbook(buf);
+    currentScheduleFileName = fileName;
+    currentScheduleSource = source;
+    recomputeCompare();
+    rebuildProjectClassMap();
+    fillPersonRadios();
+    fillLegend();
+    renderCalendar();
+    updatePersonSummary();
+    updateScheduleSourceUi();
+    refreshDiffUi();
+    legendEl.hidden = false;
+  } catch (e) {
+    resetParsedState();
+    renderEmptyHint();
+    const msg = e instanceof Error ? e.message : String(e);
+    if (source === 'auto') {
+      showError(msg || '無法載入預設排班表，請手動匯入');
+    } else {
+      showError(msg);
+    }
+    throw e;
+  }
+}
+
+async function loadDefaultScheduleFromManifest() {
+  const base = normalizeBaseUrl();
+  let manifest;
+  try {
+    const manifestRes = await fetch(`${base}schedules/manifest.json`);
+    if (!manifestRes.ok) {
+      if (manifestRes.status !== 404) {
+        showError('無法載入預設排班表，請手動匯入');
+      }
+      return;
+    }
+    manifest = await manifestRes.json();
+  } catch {
+    showError('無法載入預設排班表，請手動匯入');
+    return;
+  }
+
+  const latest =
+    manifest.latest ??
+    (manifest.files?.length ? manifest.files[0].name : null);
+  if (!latest) return;
+
+  try {
+    const fileRes = await fetch(
+      `${base}schedules/${encodeURIComponent(latest)}`
+    );
+    if (!fileRes.ok) {
+      showError('無法載入預設排班表，請手動匯入');
+      return;
+    }
+    const buf = await fileRes.arrayBuffer();
+    loadScheduleFromArrayBuffer(buf, { fileName: latest, source: 'auto' });
+  } catch {
+    // loadScheduleFromArrayBuffer 已顯示錯誤
+  }
 }
 
 /** @returns {string} */
@@ -864,29 +988,15 @@ async function onBaselineFile(file) {
 }
 
 async function onFile(file) {
-  clearError();
   if (!file) return;
   try {
     const buf = await file.arrayBuffer();
-    parsed = parseShiftWorkbook(buf);
-    recomputeCompare();
-    rebuildProjectClassMap();
-    fillPersonRadios();
-    fillLegend();
-    renderCalendar();
-    updatePersonSummary();
-    refreshDiffUi();
-  } catch (e) {
-    parsed = null;
-    projectClassMap.clear();
-    selectedPerson = '';
-    fillPersonRadios();
-    calendarRoot.innerHTML = '';
-    legendEl.hidden = true;
-    updatePersonSummary();
-    renderEmptyHint();
-    refreshDiffUi();
-    showError(e instanceof Error ? e.message : String(e));
+    loadScheduleFromArrayBuffer(buf, {
+      fileName: file.name,
+      source: 'manual',
+    });
+  } catch {
+    // loadScheduleFromArrayBuffer 已處理 UI 與錯誤
   }
 }
 
@@ -970,7 +1080,19 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && openDialogName) closeAllDialogs();
 });
 
-fillPersonRadios();
-renderEmptyHint();
-updatePersonSummary();
-updateBaselineDiffHint();
+async function bootstrap() {
+  setScheduleBootstrapLoading(true);
+  try {
+    await loadDefaultScheduleFromManifest();
+  } finally {
+    setScheduleBootstrapLoading(false);
+    if (!parsed) {
+      fillPersonRadios();
+      renderEmptyHint();
+    }
+    updatePersonSummary();
+    updateBaselineDiffHint();
+  }
+}
+
+bootstrap();

@@ -110,6 +110,44 @@ body.dialog-open {
   margin-bottom: 12px;
 }
 
+.schedule-source {
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 0 4px;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.schedule-source__name {
+  color: #444;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.schedule-source__badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(26, 26, 46, 0.08);
+  color: #1a1a2e;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.schedule-loading {
+  max-width: 900px;
+  margin: 48px auto;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #666;
+  line-height: 1.6;
+}
+
 .btn-primary {
   font-family: inherit;
   font-size: 0.9rem;

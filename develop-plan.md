@@ -645,3 +645,271 @@
 | 2026-05-18 | §4.5 標為已實作（`resolvePersonNames.js`）；日格非「僅增／僅刪／僅改」一律 `±`；比較 dialog 零差異：摘要仍顯示、變更卡區「兩版相同，無變更」 |
 
 
+---
+
+## 11. 預設載入最新日期總排班表（規格，待實作）
+
+> **狀態**：產品方向已定；**尚未開發**。實作前以本節為準。  
+> **與既有匯入的關係**：頂部「匯入總排班表」**保留**；使用者仍可手動選檔覆寫目前顯示之新版。本節**不**涵蓋上一版（baseline）預設匯入。
+
+### 11.1 目標與動機
+
+- **目標**：開啟網站（`npm run dev` 或部署後之 GitHub Pages）時，若專案內已放置符合命名規則的 xlsx，**自動**載入**檔名日期最新**的一份作為新版總排班表，無需每次手動點匯入。
+- **動機**：營運方以固定流程更新總表；檔名帶版本日期，網站應預設呈現最新一版。
+- **範圍外（Phase 1）**：
+  - **不**自動匯入上一版（`baselineParsed` 仍僅能透過「比較」dialog 手動選檔，見第 10 節）。
+  - **不**嘗試讀取使用者本機任意資料夾（瀏覽器安全限制；見 §11.2）。
+
+### 11.2 技術前提（為何必須走 `public/` + manifest）
+
+| 限制 | 說明 |
+| --- | --- |
+| 無法掃描本機目錄 | 純前端網頁**不能**列出 `~/Documents/schedules/` 等路徑下的檔案；僅能透過 HTTP `fetch` 取得**已隨站點部署**的靜態 URL，或使用者以 `<input type=file>` 授權的單檔。 |
+| 無法列靜態目錄 | 即使 xlsx 放在 `public/schedules/`，瀏覽器也**不能**對 `GET /schedules/` 取得目錄清單（一般靜態主機不開 directory listing）。因此需 **`manifest.json`** 記錄有哪些檔案。 |
+| 部署路徑 | 專案以 Vite 建置，`base` 在本機 dev 為 `/`，GitHub Pages 為 `/DrivingInstructorShiftSchedule/`（見 `vite.config.js`）。`fetch` 路徑須使用 **`import.meta.env.BASE_URL`** 前綴，避免 Pages 子路徑 404。 |
+| 禁止 `file://` | 直接雙擊開 `index.html` 通常無法可靠 `fetch` 同目錄資源；須 `npm run dev` 或 `vite preview`／靜態主機。 |
+
+### 11.3 目錄與檔案約定
+
+```
+public/
+  schedules/
+    shift-20250515.xlsx    # 範例：2025-05-15 版
+    shift-20250518.xlsx    # 範例：2025-05-18 版（較新）
+    manifest.json          # 建置前由腳本產生，勿手改（見 §11.4）
+```
+
+| 項目 | 規格 |
+| --- | --- |
+| xlsx 放置位置 | `public/schedules/`（Vite 原樣複製至輸出根目錄；`npm run build` 後出現在 `docs/schedules/`） |
+| 檔名格式 | **`shift-YYYYMMDD.xlsx`**：固定前綴 `shift-` ＋ **8 位西元日期** ＋ `.xlsx`（大小寫：前綴與副檔名建議小寫；實作時以 **case-insensitive** 比對副檔名即可） |
+| 檔名正則（建議） | `^shift-(\d{8})\.xlsx$`（`i` 修飾子可選，用於副檔名） |
+| 日期語意 | 檔名中的 `YYYYMMDD` 僅用於**挑選哪一份檔案要載入**，**不**用於推斷班表內各列的日期（班表日期仍以 Excel 儲存格解析為準，與第 8 節風險第 6 點一致） |
+| 不符合檔名者 | `public/schedules/` 內任一 `.xlsx` 若**不符合** §11.3 正則 → **`npm run build`／`schedules:manifest` 失敗**（exit code `1`），終端機列出**每一個**問題檔名與原因（見 §11.4.4） |
+| 無效日期 | 8 位數字但非合法曆日（如 `shift-20250230.xlsx`）→ 同上，**fail build** 並標明無效日期 |
+| 空目錄 | 允許 `public/schedules/` **沒有任何** `.xlsx`（僅 `manifest.json` 且 `files: []`）；啟動時視同「無預設檔」，維持現有空狀態（見 §11.6） |
+| 版控 | **`public/schedules/*.xlsx` 與 `manifest.json` 皆納入 git**（見 §11.7）；部署後瀏覽器才能 `fetch` 預設檔 |
+
+**同日期多檔（邊界）**：若存在兩份皆符合正則且 `date` 相同（理論上不應發生）→ 建置腳本 **fail build** 並列出衝突檔名。若存在 `shift-20250518-a.xlsx` 等不符合正則者 → **fail build**（不略過）。未來允許同日期多檔不在本 Phase 範圍——目前規格為**一日期一檔名**。
+
+### 11.4 建置時產生 `manifest.json`
+
+#### 11.4.1 腳本
+
+- 新增 Node 腳本（建議路徑）：`scripts/generate-schedules-manifest.mjs`
+- 行為：
+  1. 掃描 `public/schedules/*.xlsx`（僅此層，不遞迴子資料夾）。
+  2. 列出 `public/schedules/*.xlsx`；對**每一個**檔案驗證 §11.3 正則與日期合法性；任一不合格 → **不寫 manifest**、**`process.exit(1)`**（見 §11.4.4）。
+  3. 檢查 `date` 是否重複；若重複 → fail build 並列出衝突檔名。
+  4. 依 `date`（`YYYY-MM-DD`）**由新到舊**排序。
+  5. 寫入 `public/schedules/manifest.json`（UTF-8、縮排 2 空格）。
+
+#### 11.4.2 `manifest.json` 結構（version 1）
+
+```json
+{
+  "version": 1,
+  "generatedAt": "2026-05-18T08:30:00.000Z",
+  "files": [
+    {
+      "name": "shift-20250518.xlsx",
+      "date": "2025-05-18"
+    },
+    {
+      "name": "shift-20250515.xlsx",
+      "date": "2025-05-15"
+    }
+  ],
+  "latest": "shift-20250518.xlsx"
+}
+```
+
+| 欄位 | 說明 |
+| --- | --- |
+| `version` | 固定 `1`；日後結構變更可遞增 |
+| `generatedAt` | ISO 8601；腳本執行時間 |
+| `files` | 已納入之檔案；**已按 `date` 降序** |
+| `latest` | `files[0].name`；無檔時為 `null` 或省略（實作擇一並於前端統一判斷） |
+
+#### 11.4.3 npm 腳本掛鉤
+
+| 指令 | 行為 |
+| --- | --- |
+| `schedules:manifest`（建議） | 僅執行 manifest 產生腳本 |
+| `prebuild` | 於 `vite build` **之前**執行 `schedules:manifest`（滿足「`npm run build` 前掃描並產生 manifest」） |
+| `predev`（建議一併） | 於 `vite` dev **之前**執行 `schedules:manifest`，避免本機開發時忘記產生 manifest 而預設載入失敗 |
+
+> **版控（已定案）**：`manifest.json` 與 `public/schedules/*.xlsx` **皆 commit 進 repo**。新增／更名 xlsx 後須執行 `schedules:manifest`（或 `prebuild`／`predev`）並一併 commit 更新後的 manifest。
+
+#### 11.4.4 建置失敗與錯誤訊息（已定案：fail build）
+
+任一 `public/schedules/*.xlsx` 驗證失敗時，腳本**必須**以 **exit code `1`** 結束，使 `npm run build`／`predev` 中斷；**不得**僅 warning 後略過問題檔。
+
+**終端機輸出格式（範例）**——須能一眼看出**哪個檔名**、**哪一條規則**未過：
+
+```
+✖ public/schedules/：排班表檔名驗證失敗（共 2 個）
+
+  other.xlsx
+    預期格式：shift-YYYYMMDD.xlsx（例：shift-20250518.xlsx）
+
+  shift-20250230.xlsx
+    檔名日期無效：20250230（非合法曆日）
+
+請重新命名或移出 public/schedules/ 後再執行 npm run schedules:manifest
+```
+
+| 失敗原因 | 建議訊息要點 |
+| --- | --- |
+| 不符合正則 | 標示**實際檔名** + 預期格式範例 |
+| 8 位日期非法曆日 | 標示擷取出的 `YYYYMMDD` |
+| 同 `date` 多檔 | 列出所有衝突檔名（例：`shift-20250518.xlsx` 與 `shift-20250518-copy.xlsx` 若皆合法則不會發生；兩檔同 date 才觸發） |
+
+**實作備註**：Node 腳本可一次收集所有不合格檔再統一印出（避免修一個才發現下一個）。若實作上無法保證每檔皆有明確原因字串，則降級為 warning（**本專案以 fail + 逐檔說明為準**）。
+
+### 11.5 前端啟動流程
+
+#### 11.5.1 時機
+
+- 於 `src/main.js` 現有初始化（`fillPersonRadios()`、`renderEmptyHint()` 等）**之後**（或改為 await 預設載入完成再渲染，避免閃爍——實作時擇一，見 §11.6）。
+- **每次**頁面載入執行一次；**不**寫入 `localStorage` 記住上次手動匯入檔名（避免與「永遠最新 manifest」衝突）。
+
+#### 11.5.2 演算法
+
+1. `const base = import.meta.env.BASE_URL`（確保尾端有 `/` 或自行正規化）。
+2. `GET ${base}schedules/manifest.json`  
+   - 404／網路錯誤 → 進入 §11.6 失敗路徑。  
+   - JSON 解析失敗 → 失敗路徑。
+3. 若 `!latest` 且 `files.length === 0` → **不載入**，維持空狀態。
+4. `GET ${base}schedules/${latest}` → `arrayBuffer()`。
+5. 呼叫與手動匯入相同之解析管線：`parseShiftWorkbook(buf)` → 更新 `parsed` → `recomputeCompare()`、`rebuildProjectClassMap()`、`fillPersonRadios()`、`fillLegend()`、`renderCalendar()`、`updatePersonSummary()`、`refreshDiffUi()`（與現有 `onFile` 成功分支一致）。
+6. 建議抽出 `loadScheduleFromArrayBuffer(buf, { fileName, source: 'auto' | 'manual' })`，供 `onFile` 與預設載入共用；成功後更新 §11.5.4 之「目前排班表」UI。
+
+#### 11.5.3 與手動匯入、比較功能
+
+| 情境 | 行為 |
+| --- | --- |
+| 預設載入成功後，使用者再點「匯入總排班表」 | 以新檔**覆寫** `parsed`（現行 `onFile` 行為不變） |
+| 預設載入失敗 | 仍可手動匯入；**不**禁用匯入按鈕 |
+| 已匯入 `baselineParsed` 後，僅重新整理頁面 | baseline **清空**（與現況一致）；預設載入僅影響新版 `parsed` |
+| 上一版 baseline | **無**預設路徑、**無**自動 `fetch` |
+
+#### 11.5.4 目前排班表檔名（UI，已定案）
+
+**目標**：成功載入新版總排班表後（**自動**或**手動匯入**），header 內**一律**顯示目前使用中的檔名，避免使用者不知道開的是哪一版。
+
+**位置**：`index.html` 的 `.toolbar` 內、匯入按鈕**下方**（仍屬 header、隨頁面捲動，不 sticky）。與 `#person-summary` 分工：人員摘要在其下、字級較大；檔名列較小、偏輔助資訊。
+
+**版面示意（直向手機）**：
+
+```
+┌─────────────────────────────┐
+│ 總排班表 · 個人月曆            │
+│ 檔案僅在瀏覽器解析…            │
+│  [ 匯入總排班表 ]              │
+│  目前排班表：shift-20250518.xlsx  [自動]   │  ← 本節新增
+│  人員：維鈞                   │  ← 既有 #person-summary
+└─────────────────────────────┘
+```
+
+**DOM（建議）**：
+
+```html
+<p id="schedule-source" class="schedule-source" hidden>
+  <span class="schedule-source__label">目前排班表：</span>
+  <span class="schedule-source__name" id="schedule-source-name"></span>
+  <span class="schedule-source__badge" id="schedule-source-badge" hidden></span>
+</p>
+```
+
+| 元素 | 規格 |
+| --- | --- |
+| `#schedule-source` | 無資料時 `hidden`；有 `parsed` 時顯示 |
+| `.schedule-source__label` | 固定文案「目前排班表：」 |
+| `#schedule-source-name` | 檔名字串；`title` 屬性同全文（長檔名 hover 可看全） |
+| `#schedule-source-badge` | 僅在 `source === 'auto'` 時顯示，文案 **「自動」**；手動匯入後**隱藏** badge（或改文案「本機」，Phase 1 **建議僅「自動」／無 badge」二態**，較簡潔） |
+
+**狀態與文案**：
+
+| 狀態 | `#schedule-source` | 檔名 | Badge |
+| --- | --- | --- | --- |
+| 尚未載入 | hidden | — | — |
+| 預設 `fetch` 成功 | 顯示 | manifest 的 `latest`（例 `shift-20250518.xlsx`） | **自動** |
+| 手動匯入成功 | 顯示 | `File.name`（使用者選的檔名，**不**強制符合 `shift-*`） | 無 |
+| 手動匯入覆寫先前自動載入 | 顯示 | 新檔名 | 無（badge 移除） |
+| 解析失敗／清空 `parsed` | hidden | — | — |
+
+**樣式（`styles.css`，對齊既有 subtitle／toolbar）**：
+
+| 項目 | 規格 |
+| --- | --- |
+| 容器 `.schedule-source` | `width: 100%`；`margin: 0`；`padding: 0 4px`；`font-size: 0.85rem`；`color: #666`；`line-height: 1.4`；置中（與 `.toolbar` 一致） |
+| 檔名 `.schedule-source__name` | `color: #444`；`font-weight: 600`；`word-break: break-all`（極長檔名換行）；窄螢幕可選 `max-width` + `ellipsis`（與 `.person-summary__text` 類似） |
+| Badge `.schedule-source__badge` | 緊接檔名後；`font-size: 0.75rem`；`font-weight: 600`；`padding: 2px 8px`；`border-radius: 6px`；`background: rgba(26, 26, 46, 0.08)`；`color: #1a1a2e`；`letter-spacing: 0.04em`；與 `.person-summary` 同色系、但更輕量 |
+| 與錯誤區分 | **不**使用 `.error-banner` 紅底；成功資訊僅在此列；失敗仍走 `#error-banner` |
+
+**無障礙**：`#schedule-source` 在顯示時可設 `aria-live="polite"`，匯入成功後螢幕報讀會更新檔名（可選）。
+
+**與比較功能一致感**：比較 dialog 已有 `上一版：{檔名}`；本列為新版之對稱資訊，固定放在 header 常駐可見。
+
+#### 11.5.5 其他 UI 回饋
+
+- **預設載入失敗**（manifest 空、404、解析錯誤）：`#schedule-source` 維持 hidden；`#error-banner` 顯示，例：`無法載入預設排班表，請手動匯入` 或解析錯誤原文；**不**禁用匯入按鈕。
+
+### 11.6 失敗與空狀態
+
+| 情況 | 預期 |
+| --- | --- |
+| `schedules/` 無 xlsx | manifest `files: []`；頁面同現況空狀態 |
+| manifest 不存在且未執行 predev/prebuild | `fetch` 404；提示手動匯入（開發時應跑 `npm run schedules:manifest`） |
+| xlsx 存在但解析失敗 | `parsed = null`；顯示與手動匯入失敗相同之錯誤處理（`showError`）；**不**保留半套資料 |
+| GitHub Pages 子路徑 | 使用 `BASE_URL` 後仍可 `fetch` 到 `…/DrivingInstructorShiftSchedule/schedules/manifest.json` |
+
+### 11.7 版控與部署（已定案）
+
+| 項目 | 決策 |
+| --- | --- |
+| **xlsx 納入 git** | **是（必須）**。靜態站點沒有後端；預設匯入只能 `fetch` **已隨 repo／`docs/` 部署**的檔案。不 commit xlsx 則線上／clone 後**沒有檔可載**，僅剩手動匯入。 |
+| **manifest 納入 git** | **是**。與 xlsx 一併 commit；`prebuild`／`predev` 仍會重產，避免忘記更新。 |
+| **`.gitignore`** | **不要**忽略 `public/schedules/*.xlsx`（本專案路線）。 |
+
+### 11.8 建議實作順序
+
+1. 新增 `public/schedules/.gitkeep`（可選）與 manifest 產生腳本 + `package.json` 的 `schedules:manifest`、`prebuild`、`predev`。
+2. 以 1～2 份範例 `shift-*.xlsx`（可沿用 `example/` 內測試檔複製並重新命名）驗證 manifest 內容與 `latest`。
+3. `src/main.js`：抽出共用載入函式 + 啟動時 `fetch` 預設檔。
+4. `npm run build` → 確認 `docs/schedules/manifest.json` 與 xlsx 皆存在；`vite preview` 驗證子路徑 `base`。
+5. 手動匯入覆寫、解析錯誤、空 manifest 回歸。
+
+### 11.9 測試計劃（建議）
+
+| 案例 | 預期 |
+| --- | --- |
+| `schedules/` 有 `shift-20250515`、`shift-20250518` | 開站載入 `20250518`；人員 dialog 與月曆有資料 |
+| 僅舊檔 | 載入該舊檔 |
+| 檔名 `shift-20251399.xlsx` | `schedules:manifest` **失敗**；終端機標明無效日期 |
+| 檔名 `other.xlsx` | **失敗**；終端機標明預期格式；不產生 manifest |
+| 目錄內僅合法 xlsx | build 成功；開站載入 `latest`；header 顯示檔名 +「自動」 |
+| 手動匯入後 | header 檔名改為本機檔名；badge 消失 |
+| `npm run dev` 前未產 manifest | 404 提示；手動匯入仍可用 |
+| 預設載入後手動匯入另一檔 | 月曆改為手動檔內容 |
+| GitHub Pages `base` | `fetch` 路徑正確、無 404 |
+| baseline | 開站後 **未** 自動設定 `baselineParsed`；比較 dialog 仍為「尚未匯入上一版」 |
+
+### 11.10 產品定案（2026-05-18）
+
+| # | 議題 | 決策 |
+| --- | --- | --- |
+| 1 | xlsx 是否 commit | **必須** commit 至公開 repo（見 §11.7） |
+| 2 | 成功載入是否顯示檔名 | **要**；UI 見 §11.5.4（`#schedule-source` + 自動 badge） |
+| 3 | manifest 是否 commit | **要** |
+| 4 | 檔名不符合規則 | **fail build**；終端機**逐檔**列出原因（§11.4.4）；僅在無法逐檔說明時才降級 warning |
+
+### 11.11 修訂紀錄
+
+| 日期 | 說明 |
+| --- | --- |
+| 2026-05-18 | 初版：預設載入最新 `shift-YYYYMMDD.xlsx`；`public/schedules/` + 建置前 manifest；啟動 `fetch`；baseline 不預設匯入 |
+| 2026-05-18 | 產品定案：xlsx／manifest 皆 commit；header「目前排班表」UI；建置檔名驗證 fail + 逐檔錯誤訊息 |
+
+
