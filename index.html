@@ -14,11 +14,6 @@
         <input id="file-input" type="file" accept=".xlsx,.xls" hidden />
         <button type="button" id="btn-import" class="btn-primary">匯入總排班表</button>
       </div>
-      <p id="schedule-source" class="schedule-source" hidden aria-live="polite">
-        <span class="schedule-source__label">目前排班表：</span>
-        <span class="schedule-source__name" id="schedule-source-name"></span>
-        <span class="schedule-source__badge" id="schedule-source-badge" hidden>自動</span>
-      </p>
       <button
         type="button"
         id="person-summary"
@@ -33,10 +28,9 @@
       <p id="error-banner" class="error-banner" hidden></p>
     </header>
 
-    <p id="schedule-loading" class="schedule-loading">載入排班表中…</p>
     <div id="legend" class="legend" hidden></div>
     <div id="person-diff-panel" class="person-diff-panel" hidden></div>
-    <div id="calendar-root" hidden></div>
+    <div id="calendar-root"></div>
 
     <nav id="main-nav" class="main-nav" aria-label="主導航">
       <div class="main-nav__actions">

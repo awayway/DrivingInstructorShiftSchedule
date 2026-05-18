@@ -4,10 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "schedules:manifest": "node scripts/generate-schedules-manifest.mjs",
-    "predev": "npm run schedules:manifest",
     "dev": "vite",
-    "prebuild": "npm run schedules:manifest",
     "build": "vite build",
     "preview": "vite preview",
     "parse-test": "node scripts/parse-test.mjs",
