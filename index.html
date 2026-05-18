@@ -29,6 +29,7 @@
     </header>
 
     <div id="legend" class="legend" hidden></div>
+    <div id="person-diff-panel" class="person-diff-panel" hidden></div>
     <div id="calendar-root"></div>
 
     <nav id="main-nav" class="main-nav" aria-label="主導航">
@@ -50,6 +51,15 @@
           aria-expanded="false"
         >
           檢視
+        </button>
+        <button
+          type="button"
+          class="main-nav__btn"
+          data-dialog="compare"
+          aria-controls="dialog-compare"
+          aria-expanded="false"
+        >
+          比較
         </button>
         <button type="button" class="main-nav__btn" data-dialog="more">更多</button>
       </div>
@@ -126,9 +136,43 @@
               顯示同天同專案的人員
             </label>
           </section>
+          <section
+            class="view-settings-section"
+            aria-labelledby="view-section-baseline"
+          >
+            <h3 id="view-section-baseline" class="view-settings-section__title">
+              【與上一版比較】
+            </h3>
+            <label class="month-filter-toggle" id="view-baseline-diff-label">
+              <input type="checkbox" id="view-show-baseline-diff" checked />
+              <span class="view-baseline-diff-text">
+                顯示與上一版差異
+                <span id="view-baseline-diff-hint" class="view-baseline-diff-hint" hidden>
+                  （尚未匯入上一版，請至底欄「比較」匯入）
+                </span>
+              </span>
+            </label>
+          </section>
         </div>
       </div>
+
+      <div
+        id="dialog-compare"
+        class="dialog dialog--compare"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-compare-title"
+        hidden
+      >
+        <header class="dialog__header">
+          <h2 id="dialog-compare-title" class="dialog__title">與上一版總排班表比較</h2>
+          <button type="button" class="dialog__close" aria-label="關閉">×</button>
+        </header>
+        <div id="compare-dialog-body" class="dialog__body compare-dialog-body"></div>
+      </div>
     </div>
+
+    <input id="baseline-file-input" type="file" accept=".xlsx,.xls" hidden />
 
     <script type="module" src="/src/main.js"></script>
   </body>

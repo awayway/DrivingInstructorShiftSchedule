@@ -1,3 +1,17 @@
+import {
+  compareSchedules,
+  dayDiffBadge,
+  eventCompareKey,
+  formatBaselineHint,
+  formatChangeDateLabel,
+  formatSummaryText,
+  summarizePersonChanges,
+} from './compareSchedules.js';
+import {
+  buildChangeCard,
+  renderCompareDialog as renderCompareDialogUi,
+  renderPersonDiffPanel as renderPersonDiffPanelUi,
+} from './compareUi.js';
 import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 
 const fileInput = document.getElementById('file-input');
@@ -14,6 +28,11 @@ const viewShowAlias = document.getElementById('view-show-alias');
 const viewShowSameProjectPeers = document.getElementById(
   'view-show-same-project-peers'
 );
+const viewShowBaselineDiff = document.getElementById('view-show-baseline-diff');
+const viewBaselineDiffHint = document.getElementById('view-baseline-diff-hint');
+const baselineFileInput = document.getElementById('baseline-file-input');
+const compareDialogBody = document.getElementById('compare-dialog-body');
+const personDiffPanel = document.getElementById('person-diff-panel');
 const calendarRoot = document.getElementById('calendar-root');
 const errorBanner = document.getElementById('error-banner');
 const legendEl = document.getElementById('legend');
@@ -21,8 +40,9 @@ const mainNav = document.getElementById('main-nav');
 const dialogOverlay = document.getElementById('dialog-overlay');
 const dialogPeople = document.getElementById('dialog-people');
 const dialogView = document.getElementById('dialog-view');
+const dialogCompare = document.getElementById('dialog-compare');
 
-/** @type {'people' | 'view' | null} */
+/** @type {'people' | 'view' | 'compare' | null} */
 let openDialogName = null;
 /** @type {HTMLButtonElement | null} */
 let dialogTriggerBtn = null;
@@ -32,6 +52,13 @@ let selectedPerson = '';
 const DIALOGS = {
   people: dialogPeople,
   view: dialogView,
+  compare: dialogCompare,
+};
+
+const CHANGE_TYPE_LABEL = {
+  add: '新增',
+  remove: '刪除',
+  modify: '修改',
 };
 
 const NAV_BTNS = mainNav.querySelectorAll('.main-nav__btn[data-dialog]');
@@ -53,6 +80,17 @@ const projectClassMap = new Map();
 
 /** @type {{ people: string[], byPerson: Record<string, Record<string, Array<{ project: string, location: string, period: string | null, rawName?: string }>>> } | null} */
 let parsed = null;
+
+/** @type {typeof parsed} */
+let baselineParsed = null;
+/** @type {string} */
+let baselineFileName = '';
+/** @type {import('./compareSchedules.js').CompareResult | null} */
+let compareResult = null;
+/** @type {string} */
+let compareDialogError = '';
+/** @type {boolean} */
+let baselineParsing = false;
 
 function showError(msg) {
   errorBanner.textContent = msg;
@@ -89,8 +127,33 @@ function setNavExpanded(dialogName) {
   }
 }
 
+function isDiffModeActive() {
+  return Boolean(
+    parsed &&
+      baselineParsed &&
+      compareResult &&
+      viewShowBaselineDiff &&
+      viewShowBaselineDiff.checked
+  );
+}
+
+function recomputeCompare() {
+  if (parsed && baselineParsed) {
+    compareResult = compareSchedules(baselineParsed, parsed);
+  } else {
+    compareResult = null;
+  }
+}
+
+function updateBaselineDiffHint() {
+  if (!viewBaselineDiffHint) return;
+  const showHint =
+    viewShowBaselineDiff?.checked && !baselineParsed && Boolean(parsed);
+  viewBaselineDiffHint.hidden = !showHint;
+}
+
 /**
- * @param {'people' | 'view'} name
+ * @param {'people' | 'view' | 'compare'} name
  * @param {HTMLButtonElement} [triggerBtn]
  */
 function openDialog(name, triggerBtn) {
@@ -115,16 +178,23 @@ function openDialog(name, triggerBtn) {
 }
 
 function closeAllDialogs() {
+  const wasCompare = openDialogName === 'compare';
   openDialogName = null;
   dialogOverlay.hidden = true;
   dialogOverlay.setAttribute('aria-hidden', 'true');
   dialogPeople.hidden = true;
   dialogView.hidden = true;
+  dialogCompare.hidden = true;
   document.body.classList.remove('dialog-open');
   setNavExpanded(null);
   if (dialogTriggerBtn) {
     dialogTriggerBtn.focus();
     dialogTriggerBtn = null;
+  }
+  if (wasCompare) {
+    refreshDiffUi();
+    fillLegend();
+    renderCalendar();
   }
 }
 
@@ -141,11 +211,15 @@ function rebuildProjectClassMap() {
   projectClassMap.clear();
   if (!parsed) return;
   const projects = new Set();
-  for (const sched of Object.values(parsed.byPerson)) {
-    for (const day of Object.values(sched)) {
-      for (const ev of day) {
-        const name = ev.project?.trim();
-        if (name) projects.add(name);
+  const sources = [parsed.byPerson];
+  if (baselineParsed) sources.push(baselineParsed.byPerson);
+  for (const byPerson of sources) {
+    for (const sched of Object.values(byPerson)) {
+      for (const day of Object.values(sched)) {
+        for (const ev of day) {
+          const name = ev.project?.trim();
+          if (name) projects.add(name);
+        }
       }
     }
   }
@@ -215,8 +289,17 @@ function findSameProjectPeers(dateStr, project, currentPersonKey) {
  * @param {string} personKey
  * @param {string} dateStr
  */
-function fillEventCard(card, ev, personKey, dateStr) {
-  const showAlias = viewShowAlias ? viewShowAlias.checked : true;
+/**
+ * @param {HTMLDivElement} card
+ * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+ * @param {string} personKey
+ * @param {string} [dateStr]
+ * @param {{ full?: boolean, includePeers?: boolean }} [opts]
+ */
+function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
+  const full = opts.full === true;
+  const includePeers = opts.includePeers !== false && !full;
+  const showAlias = full || (viewShowAlias ? viewShowAlias.checked : true);
   if (
     ev.rawName &&
     (personKey === OTHER_KEY ||
@@ -231,8 +314,8 @@ function fillEventCard(card, ev, personKey, dateStr) {
   projectEl.className = 'project-name';
   projectEl.textContent = ev.project;
   card.appendChild(projectEl);
-  const showLocation = viewShowLocation ? viewShowLocation.checked : true;
-  const showPeriod = viewShowPeriod ? viewShowPeriod.checked : true;
+  const showLocation = full || (viewShowLocation ? viewShowLocation.checked : true);
+  const showPeriod = full || (viewShowPeriod ? viewShowPeriod.checked : true);
   if (showLocation && ev.location) {
     const locEl = document.createElement('div');
     locEl.className = 'location-name';
@@ -246,9 +329,10 @@ function fillEventCard(card, ev, personKey, dateStr) {
     card.appendChild(periodEl);
   }
 
-  const showPeers = viewShowSameProjectPeers
-    ? viewShowSameProjectPeers.checked
-    : true;
+  const showPeers =
+    includePeers &&
+    dateStr &&
+    (viewShowSameProjectPeers ? viewShowSameProjectPeers.checked : true);
   if (showPeers) {
     const peers = findSameProjectPeers(dateStr, ev.project, personKey);
     if (peers.length) {
@@ -258,6 +342,58 @@ function fillEventCard(card, ev, personKey, dateStr) {
       card.appendChild(peersEl);
     }
   }
+}
+
+/**
+ * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+ * @param {string} personKey
+ * @param {string} [dateStr]
+ * @param {{ ghost?: boolean, diffClass?: string, baselineHint?: string }} [opts]
+ */
+function createEventCardElement(ev, personKey, dateStr, opts = {}) {
+  const card = document.createElement('div');
+  const cls = projectClass(ev.project);
+  card.className = `event-card ${cls}`;
+  if (opts.diffClass) card.classList.add(opts.diffClass);
+  if (opts.ghost) {
+    card.classList.add('event-card--diff-remove');
+    const tag = document.createElement('div');
+    tag.className = 'diff-ghost-tag';
+    tag.textContent = '刪除（上一版）';
+    card.appendChild(tag);
+    fillEventCard(card, ev, personKey, dateStr);
+  } else {
+    fillEventCard(card, ev, personKey, dateStr);
+    if (opts.baselineHint) {
+      const hint = document.createElement('div');
+      hint.className = 'diff-baseline-hint';
+      hint.textContent = `原：${opts.baselineHint}`;
+      card.appendChild(hint);
+    }
+  }
+  return card;
+}
+
+/**
+ * @param {HTMLElement} cell
+ * @param {import('./compareSchedules.js').DayDiff} dayDiff
+ */
+function appendDayDiffChrome(cell, dayDiff) {
+  const { badge, summary, cellClass } = dayDiffBadge(dayDiff);
+  cell.classList.add(cellClass);
+  const dateLabel = cell.querySelector('.date-num');
+  if (dateLabel) {
+    const badgeEl = document.createElement('span');
+    badgeEl.className = 'day-diff-badge';
+    badgeEl.textContent = badge;
+    dateLabel.appendChild(badgeEl);
+  }
+  const summaryEl = document.createElement('div');
+  summaryEl.className = 'day-diff-summary';
+  summaryEl.textContent = summary;
+  const anchor = cell.querySelector('.date-num');
+  if (anchor?.nextSibling) cell.insertBefore(summaryEl, anchor.nextSibling);
+  else cell.appendChild(summaryEl);
 }
 
 const dayHeaders = ['一', '二', '三', '四', '五', '六', '日'];
@@ -340,14 +476,47 @@ function buildMonth(year, month, label, personKey) {
     cell.appendChild(dateLabel);
 
     if (!cell.classList.contains('other-month')) {
-      const events = schedule[dateStr];
-      if (events && events.length) {
-        for (const ev of events) {
-          const card = document.createElement('div');
-          const cls = projectClass(ev.project);
-          card.className = `event-card ${cls}`;
-          fillEventCard(card, ev, personKey, dateStr);
-          cell.appendChild(card);
+      const events = schedule[dateStr] || [];
+      const showDiff = isDiffModeActive();
+      const dayDiff = showDiff
+        ? compareResult?.dayDiffByPerson[personKey]?.[dateStr]
+        : null;
+
+      if (dayDiff) appendDayDiffChrome(cell, dayDiff);
+
+      /** @type {Map<string, { baseline: import('./compareSchedules.js').ShiftEvent }>} */
+      const modifyByCurrentKey = new Map();
+      if (dayDiff) {
+        for (const pair of dayDiff.modifyPairs) {
+          modifyByCurrentKey.set(eventCompareKey(pair.current), pair);
+        }
+      }
+
+      for (const ev of events) {
+        let diffClass = '';
+        let baselineHint = '';
+        if (dayDiff?.currentDiffByKey.has(eventCompareKey(ev))) {
+          const pair = modifyByCurrentKey.get(eventCompareKey(ev));
+          if (pair) {
+            diffClass = 'event-card--diff-chg';
+            baselineHint = formatBaselineHint(pair.baseline);
+          } else {
+            diffClass = 'event-card--diff-add';
+          }
+        }
+        cell.appendChild(
+          createEventCardElement(ev, personKey, dateStr, {
+            diffClass,
+            baselineHint,
+          })
+        );
+      }
+
+      if (dayDiff?.ghosts?.length) {
+        for (const ev of dayDiff.ghosts) {
+          cell.appendChild(
+            createEventCardElement(ev, personKey, dateStr, { ghost: true })
+          );
         }
       }
     }
@@ -361,14 +530,27 @@ function buildMonth(year, month, label, personKey) {
 
 function collectMonths(personKey) {
   if (!parsed) return [];
-  const dates = Object.keys(parsed.byPerson[personKey] || {}).sort();
-  if (!dates.length) return [];
   const months = new Map();
-  for (const d of dates) {
+  /** @param {string} d */
+  const addDate = (d) => {
     const [y, m] = d.split('-').map(Number);
     const key = `${y}-${pad(m)}`;
     if (!months.has(key)) months.set(key, { year: y, month: m });
+  };
+
+  for (const d of Object.keys(parsed.byPerson[personKey] || {})) addDate(d);
+
+  if (isDiffModeActive() && baselineParsed) {
+    for (const d of Object.keys(baselineParsed.byPerson[personKey] || {})) {
+      addDate(d);
+    }
+    const dayDiff = compareResult?.dayDiffByPerson[personKey];
+    if (dayDiff) {
+      for (const d of Object.keys(dayDiff)) addDate(d);
+    }
   }
+
+  if (!months.size) return [];
   return [...months.values()].sort((a, b) =>
     a.year !== b.year ? a.year - b.year : a.month - b.month
   );
@@ -461,9 +643,11 @@ function renderCalendar() {
   if (!parsed) {
     renderEmptyHint();
     updatePersonSummary();
+    renderPersonDiffPanel();
     return;
   }
   updatePersonSummary();
+  renderPersonDiffPanel();
   const key = selectedPerson;
   const allMonths = collectMonths(key);
   if (!allMonths.length) {
@@ -504,6 +688,44 @@ function renderCalendar() {
   }
 }
 
+function getCompareUiCtx() {
+  return {
+    personDiffPanel,
+    compareDialogBody,
+    baselineFileInput,
+    parsed,
+    baselineParsed,
+    baselineFileName,
+    baselineParsing,
+    compareResult,
+    compareDialogError,
+    selectedPerson,
+    isDiffModeActive,
+    getPersonDisplayName,
+    formatChangeDateLabel,
+    formatSummaryText,
+    summarizePersonChanges,
+    fillEventCard,
+    projectClass,
+    changeTypeLabel: CHANGE_TYPE_LABEL,
+    buildChangeCard: (ch) => buildChangeCard(getCompareUiCtx(), ch),
+  };
+}
+
+function renderPersonDiffPanel() {
+  renderPersonDiffPanelUi(getCompareUiCtx());
+}
+
+function renderCompareDialog() {
+  renderCompareDialogUi(getCompareUiCtx());
+}
+
+function refreshDiffUi() {
+  updateBaselineDiffHint();
+  renderPersonDiffPanel();
+  if (openDialogName === 'compare') renderCompareDialog();
+}
+
 function fillLegend() {
   if (!parsed) {
     legendEl.hidden = true;
@@ -528,6 +750,29 @@ function fillLegend() {
     item.appendChild(span);
     legendEl.appendChild(item);
   }
+
+  if (isDiffModeActive()) {
+    const diffRow = document.createElement('div');
+    diffRow.className = 'legend-diff-row';
+    const items = [
+      { cls: 'legend-diff-sample--add', label: '新增' },
+      { cls: 'legend-diff-sample--chg', label: '修改', hint: '原：…' },
+      { cls: 'legend-diff-sample--remove', label: '刪除（上一版）' },
+    ];
+    for (const it of items) {
+      const item = document.createElement('div');
+      item.className = 'legend-item legend-item--diff';
+      const sample = document.createElement('div');
+      sample.className = `legend-diff-sample ${it.cls}`;
+      const span = document.createElement('span');
+      span.textContent = it.hint ? `${it.label}（${it.hint}）` : it.label;
+      item.appendChild(sample);
+      item.appendChild(span);
+      diffRow.appendChild(item);
+    }
+    legendEl.appendChild(diffRow);
+  }
+
   legendEl.hidden = legendEl.childElementCount === 0;
 }
 
@@ -594,17 +839,43 @@ function onPersonRadioChange() {
   closeAllDialogs();
 }
 
+async function onBaselineFile(file) {
+  compareDialogError = '';
+  if (!file || !parsed) return;
+  baselineParsing = true;
+  renderCompareDialog();
+  try {
+    const buf = await file.arrayBuffer();
+    baselineParsed = parseShiftWorkbook(buf);
+    baselineFileName = file.name;
+    compareDialogError = '';
+    recomputeCompare();
+    rebuildProjectClassMap();
+    refreshDiffUi();
+    fillLegend();
+    renderCalendar();
+  } catch (e) {
+    compareDialogError = e instanceof Error ? e.message : String(e);
+    renderCompareDialog();
+  } finally {
+    baselineParsing = false;
+    renderCompareDialog();
+  }
+}
+
 async function onFile(file) {
   clearError();
   if (!file) return;
   try {
     const buf = await file.arrayBuffer();
     parsed = parseShiftWorkbook(buf);
+    recomputeCompare();
     rebuildProjectClassMap();
     fillPersonRadios();
     fillLegend();
     renderCalendar();
     updatePersonSummary();
+    refreshDiffUi();
   } catch (e) {
     parsed = null;
     projectClassMap.clear();
@@ -614,6 +885,7 @@ async function onFile(file) {
     legendEl.hidden = true;
     updatePersonSummary();
     renderEmptyHint();
+    refreshDiffUi();
     showError(e instanceof Error ? e.message : String(e));
   }
 }
@@ -661,12 +933,25 @@ viewShowSameProjectPeers?.addEventListener('change', () => {
   renderCalendar();
 });
 
+viewShowBaselineDiff?.addEventListener('change', () => {
+  refreshDiffUi();
+  fillLegend();
+  renderCalendar();
+});
+
+baselineFileInput?.addEventListener('change', () => {
+  const f = baselineFileInput.files && baselineFileInput.files[0];
+  onBaselineFile(f);
+  baselineFileInput.value = '';
+});
+
 for (const btn of NAV_BTNS) {
   btn.addEventListener('click', () => {
     const dialog = btn.getAttribute('data-dialog');
     if (dialog === 'more') return;
-    if (dialog === 'people' || dialog === 'view') {
+    if (dialog === 'people' || dialog === 'view' || dialog === 'compare') {
       openDialog(dialog, btn);
+      if (dialog === 'compare') renderCompareDialog();
     }
   });
 }
@@ -675,9 +960,9 @@ dialogOverlay.addEventListener('click', (e) => {
   if (e.target === dialogOverlay) closeAllDialogs();
 });
 
-for (const panel of [dialogPeople, dialogView]) {
-  panel.addEventListener('click', (e) => e.stopPropagation());
-  const closeBtn = panel.querySelector('.dialog__close');
+for (const panel of [dialogPeople, dialogView, dialogCompare]) {
+  panel?.addEventListener('click', (e) => e.stopPropagation());
+  const closeBtn = panel?.querySelector('.dialog__close');
   closeBtn?.addEventListener('click', closeAllDialogs);
 }
 
@@ -688,3 +973,4 @@ document.addEventListener('keydown', (e) => {
 fillPersonRadios();
 renderEmptyHint();
 updatePersonSummary();
+updateBaselineDiffHint();
