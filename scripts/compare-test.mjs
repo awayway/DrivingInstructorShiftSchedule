@@ -4,6 +4,7 @@ import {
   dayDiffBadge,
   diffPersonDay,
   eventCompareKey,
+  summarizePersonChanges,
 } from '../src/compareSchedules.js';
 import { findSameProjectPeers } from '../src/findSameProjectPeers.js';
 import { parseShiftWorkbook } from '../src/parseShiftWorkbook.js';
@@ -49,13 +50,13 @@ const ev = (project, location = '', period = null, rawName) => ({
   assert(r.removes.length === 1 && r.adds.length === 1 && r.modifyPairs.length === 0);
 }
 
-// rawName only change → delete + add
+// rawName only change → modify
 {
   const r = diffPersonDay(
     [ev('A', '台北', null, '維')],
     [ev('A', '台北', null, '維鈞半天')]
   );
-  assert(r.removes.length === 1 && r.adds.length === 1 && r.modifyPairs.length === 0);
+  assert(r.modifyPairs.length === 1 && r.adds.length === 0 && r.removes.length === 0);
 }
 
 // two same project → two modifies
@@ -136,6 +137,24 @@ assert(cmp.summary.modified === 1 && cmp.summary.total === 1);
     JSON.stringify(findSameProjectPeers(current, '2026-05-20', 'P', '甲')) ===
       JSON.stringify(['乙', '丙']),
     'current peers differ'
+  );
+}
+
+// example xlsx: 維鈞 多為別名／rawName 變更 → 修改，非大量刪+增
+{
+  const base = parseShiftWorkbook(
+    readFileSync('example/shiftTotalTable0515_01.xlsx')
+  );
+  const curr = parseShiftWorkbook(
+    readFileSync('example/shiftTotalTable0519_viki.xlsx')
+  );
+  const s = summarizePersonChanges(
+    compareSchedules(base, curr).changesByPerson,
+    '維鈞'
+  );
+  assert(
+    s.modified >= 15 && s.added === 0,
+    `維鈞 alias changes should be mostly modify, got ${JSON.stringify(s)}`
   );
 }
 

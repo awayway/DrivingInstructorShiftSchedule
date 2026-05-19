@@ -101,16 +101,7 @@ export function diffPersonDay(baselineEvents, currentEvents) {
     for (let i = 0; i < pairCount; i++) {
       const baseline = bList[i];
       const current = cList[i];
-      const sameCore =
-        norm(baseline.project) === norm(current.project) &&
-        norm(baseline.location) === norm(current.location) &&
-        norm(baseline.period) === norm(current.period);
-      if (sameCore && norm(baseline.rawName) !== norm(current.rawName)) {
-        removes.push(baseline);
-        adds.push(current);
-      } else {
-        modifyPairs.push({ baseline, current });
-      }
+      modifyPairs.push({ baseline, current });
     }
     for (let i = pairCount; i < bList.length; i++) removes.push(bList[i]);
     for (let i = pairCount; i < cList.length; i++) adds.push(cList[i]);
