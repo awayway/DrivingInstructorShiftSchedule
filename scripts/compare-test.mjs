@@ -1,5 +1,6 @@
 import {
   compareSchedules,
+  dayDiffBadge,
   diffPersonDay,
   eventCompareKey,
 } from '../src/compareSchedules.js';
@@ -81,5 +82,29 @@ const current = {
 };
 const cmp = compareSchedules(baseline, current);
 assert(cmp.summary.modified === 1 && cmp.summary.total === 1);
+
+// remove-only with remaining shifts → − badge, N刪 summary
+{
+  const r = diffPersonDay(
+    [ev('交通大隊', '大龍港'), ev('警專機車考照', '大台北')],
+    [ev('交通大隊', '大龍港')]
+  );
+  assert(r.removes.length === 1 && r.adds.length === 0);
+  const dayDiff = {
+    adds: 0,
+    removes: 1,
+    modifies: 0,
+    ghosts: r.removes,
+    modifyPairs: [],
+    currentDiffByKey: new Map(),
+  };
+  const partial = dayDiffBadge(dayDiff, 1);
+  assert(partial.badge === '−' && partial.summary === '1刪');
+  const empty = dayDiffBadge(dayDiff, 0);
+  assert(
+    empty.badge === '−' &&
+      empty.summary === '此日已無排班（上一版 1 班）'
+  );
+}
 
 console.log('compare-test: ok');

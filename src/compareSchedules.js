@@ -275,16 +275,23 @@ export function compareSchedules(baseline, current) {
   };
 }
 
-/** @param {DayDiff} dayDiff */
-export function dayDiffBadge(dayDiff) {
+/**
+ * @param {DayDiff} dayDiff
+ * @param {number} [currentCount] 新版當日該員班次數；0 表示整日刪光（§10.7）
+ */
+export function dayDiffBadge(dayDiff, currentCount = 0) {
   const { adds, removes, modifies } = dayDiff;
   if (adds > 0 && removes === 0 && modifies === 0) {
     return { badge: '+', summary: `${adds} 增`, cellClass: 'day-cell--diff-add' };
   }
   if (removes > 0 && adds === 0 && modifies === 0) {
+    const summary =
+      currentCount > 0
+        ? `${removes}刪`
+        : `此日已無排班（上一版 ${removes} 班）`;
     return {
       badge: '−',
-      summary: `此日已無排班（上一版 ${removes} 班）`,
+      summary,
       cellClass: 'day-cell--diff-remove',
     };
   }

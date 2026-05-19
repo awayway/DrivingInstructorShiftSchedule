@@ -377,9 +377,10 @@ function createEventCardElement(ev, personKey, dateStr, opts = {}) {
 /**
  * @param {HTMLElement} cell
  * @param {import('./compareSchedules.js').DayDiff} dayDiff
+ * @param {number} currentCount
  */
-function appendDayDiffChrome(cell, dayDiff) {
-  const { badge, summary, cellClass } = dayDiffBadge(dayDiff);
+function appendDayDiffChrome(cell, dayDiff, currentCount) {
+  const { badge, summary, cellClass } = dayDiffBadge(dayDiff, currentCount);
   cell.classList.add(cellClass);
   const dateLabel = cell.querySelector('.date-num');
   if (dateLabel) {
@@ -482,7 +483,7 @@ function buildMonth(year, month, label, personKey) {
         ? compareResult?.dayDiffByPerson[personKey]?.[dateStr]
         : null;
 
-      if (dayDiff) appendDayDiffChrome(cell, dayDiff);
+      if (dayDiff) appendDayDiffChrome(cell, dayDiff, events.length);
 
       /** @type {Map<string, { baseline: import('./compareSchedules.js').ShiftEvent }>} */
       const modifyByCurrentKey = new Map();
