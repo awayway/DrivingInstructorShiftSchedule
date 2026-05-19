@@ -12,6 +12,7 @@ import {
   renderCompareDialog as renderCompareDialogUi,
   renderPersonDiffPanel as renderPersonDiffPanelUi,
 } from './compareUi.js';
+import { findSameProjectPeers } from './findSameProjectPeers.js';
 import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 
 const fileInput = document.getElementById('file-input');
@@ -243,58 +244,11 @@ function pad(n) {
 }
 
 /**
- * 同日同專案、排除目前人員；清單內人員依 people 順序，「其他」以 rawName、zh-Hant 排序。
- * @param {string} dateStr
- * @param {string} project
- * @param {string} currentPersonKey
- * @returns {string[]}
- */
-function findSameProjectPeers(dateStr, project, currentPersonKey) {
-  if (!parsed) return [];
-  const projectKey = project.trim();
-  if (!projectKey) return [];
-
-  const listPeople = new Set();
-  const otherNames = new Set();
-
-  for (const personKey of [...parsed.people, OTHER_KEY]) {
-    if (personKey === currentPersonKey) continue;
-    const dayEvents = parsed.byPerson[personKey]?.[dateStr];
-    if (!dayEvents?.length) continue;
-
-    for (const ev of dayEvents) {
-      if (ev.project?.trim() !== projectKey) continue;
-      if (personKey === OTHER_KEY) {
-        const raw = ev.rawName?.trim();
-        if (raw) otherNames.add(raw);
-      } else {
-        listPeople.add(personKey);
-      }
-    }
-  }
-
-  const out = [];
-  for (const name of parsed.people) {
-    if (listPeople.has(name)) out.push(name);
-  }
-  out.push(
-    ...[...otherNames].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
-  );
-  return out;
-}
-
-/**
- * @param {HTMLDivElement} card
- * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
- * @param {string} personKey
- * @param {string} dateStr
- */
-/**
  * @param {HTMLDivElement} card
  * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
  * @param {string} personKey
  * @param {string} [dateStr]
- * @param {{ full?: boolean, includePeers?: boolean }} [opts]
+ * @param {{ full?: boolean, includePeers?: boolean, peerSchedule?: typeof parsed }} [opts]
  */
 function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
   const full = opts.full === true;
@@ -334,7 +288,13 @@ function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
     dateStr &&
     (viewShowSameProjectPeers ? viewShowSameProjectPeers.checked : true);
   if (showPeers) {
-    const peers = findSameProjectPeers(dateStr, ev.project, personKey);
+    const schedule = opts.peerSchedule ?? parsed;
+    const peers = findSameProjectPeers(
+      schedule,
+      dateStr,
+      ev.project,
+      personKey
+    );
     if (peers.length) {
       const peersEl = document.createElement('div');
       peersEl.className = 'same-project-peers-line';
@@ -351,6 +311,8 @@ function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
  * @param {{ ghost?: boolean, diffClass?: string, baselineHint?: string }} [opts]
  */
 function createEventCardElement(ev, personKey, dateStr, opts = {}) {
+  /** @type {import('./findSameProjectPeers.js').Parameters<typeof findSameProjectPeers>[0] | undefined} */
+  const ghostPeerSchedule = opts.ghost ? baselineParsed ?? undefined : undefined;
   const card = document.createElement('div');
   const cls = projectClass(ev.project);
   card.className = `event-card ${cls}`;
@@ -361,7 +323,9 @@ function createEventCardElement(ev, personKey, dateStr, opts = {}) {
     tag.className = 'diff-ghost-tag';
     tag.textContent = '刪除（上一版）';
     card.appendChild(tag);
-    fillEventCard(card, ev, personKey, dateStr);
+    fillEventCard(card, ev, personKey, dateStr, {
+      peerSchedule: ghostPeerSchedule,
+    });
   } else {
     fillEventCard(card, ev, personKey, dateStr);
     if (opts.baselineHint) {

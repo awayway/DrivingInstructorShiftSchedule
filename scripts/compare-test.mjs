@@ -1,9 +1,12 @@
+import { readFileSync } from 'fs';
 import {
   compareSchedules,
   dayDiffBadge,
   diffPersonDay,
   eventCompareKey,
 } from '../src/compareSchedules.js';
+import { findSameProjectPeers } from '../src/findSameProjectPeers.js';
+import { parseShiftWorkbook } from '../src/parseShiftWorkbook.js';
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -104,6 +107,55 @@ assert(cmp.summary.modified === 1 && cmp.summary.total === 1);
   assert(
     empty.badge === '−' &&
       empty.summary === '此日已無排班（上一版 1 班）'
+  );
+}
+
+// ghost peers: baseline schedule, not current
+{
+  const evP = (project) => ({ project, location: '', period: null });
+  const baseline = {
+    people: ['甲', '乙', '丙'],
+    byPerson: {
+      甲: { '2026-05-20': [evP('P')] },
+      乙: { '2026-05-20': [evP('P')] },
+    },
+  };
+  const current = {
+    people: ['甲', '乙', '丙'],
+    byPerson: {
+      乙: { '2026-05-20': [evP('P')] },
+      丙: { '2026-05-20': [evP('P')] },
+    },
+  };
+  assert(
+    JSON.stringify(findSameProjectPeers(baseline, '2026-05-20', 'P', '甲')) ===
+      JSON.stringify(['乙']),
+    'baseline peers for deleted shift'
+  );
+  assert(
+    JSON.stringify(findSameProjectPeers(current, '2026-05-20', 'P', '甲')) ===
+      JSON.stringify(['乙', '丙']),
+    'current peers differ'
+  );
+}
+
+// example xlsx: 呂小遠 5/20 ghost 僅應顯示上一版同專案 peers（鴨子）
+{
+  const base = parseShiftWorkbook(
+    readFileSync('example/shiftTotalTable0515_01.xlsx')
+  );
+  const curr = parseShiftWorkbook(
+    readFileSync('example/shiftTotalTable0519_viki.xlsx')
+  );
+  const person = '呂小遠';
+  const date = '2026-05-20';
+  const ghost = compareSchedules(base, curr).dayDiffByPerson[person]?.[date]
+    ?.ghosts?.[0];
+  assert(ghost, 'expected ghost for 呂小遠 5/20');
+  const peers = findSameProjectPeers(base, date, ghost.project, person);
+  assert(
+    JSON.stringify(peers) === JSON.stringify(['鴨子']),
+    `ghost peers should be 鴨子 only, got ${peers.join('、')}`
   );
 }
 
