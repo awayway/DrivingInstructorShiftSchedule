@@ -76,6 +76,9 @@ const PROJECT_COLOR_PALETTE = [
   'proj-default',
 ];
 
+/** 指定專案固定配色（避免自動分配太接近） */
+const PROJECT_CLASS_OVERRIDES = new Map([['署汽車', 'proj-shu-car']]);
+
 /** @type {Map<string, string>} */
 const projectClassMap = new Map();
 
@@ -236,6 +239,8 @@ function rebuildProjectClassMap() {
 
 function projectClass(project) {
   const key = project.trim();
+  const override = PROJECT_CLASS_OVERRIDES.get(key);
+  if (override) return override;
   return projectClassMap.get(key) ?? 'proj-default';
 }
 

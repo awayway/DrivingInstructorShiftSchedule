@@ -608,6 +608,12 @@ body.dialog-open {
   border-left: 3px solid #e67e22;
 }
 
+.proj-shu-car {
+  background: #efe1d1;
+  color: #5a3e2b;
+  border-left: 3px solid #8b5a2b;
+}
+
 .proj-mute-a {
   background: #ebdef8;
   color: #512e5f;
