@@ -266,6 +266,7 @@ function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
   ) {
     const raw = document.createElement('div');
     raw.className = 'raw-name-line';
+    if (ev.rawName.trim().endsWith('X')) raw.classList.add('raw-name-line--x');
     raw.textContent = ev.rawName;
     card.appendChild(raw);
   }
