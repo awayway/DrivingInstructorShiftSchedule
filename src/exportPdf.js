@@ -242,8 +242,16 @@ export function runPrintExport(layout, sources) {
 
     body.appendChild(wrap);
 
-    const doPrint = () => {
+    const doPrint = async () => {
       iframe.style.width = `${width}px`;
+      if (doc.fonts?.ready) {
+        try {
+          await doc.fonts.ready;
+        } catch {
+          /* 字型載入失敗仍嘗試列印 */
+        }
+      }
+      await new Promise((r) => requestAnimationFrame(r));
       win.focus();
       try {
         win.print();
@@ -256,12 +264,12 @@ export function runPrintExport(layout, sources) {
     const links = doc.querySelectorAll('link[rel="stylesheet"]');
     let pending = links.length;
     if (!pending) {
-      requestAnimationFrame(doPrint);
+      void doPrint();
       return;
     }
     const onReady = () => {
       pending -= 1;
-      if (pending <= 0) requestAnimationFrame(doPrint);
+      if (pending <= 0) void doPrint();
     };
     for (const link of links) {
       if (link.sheet) onReady();

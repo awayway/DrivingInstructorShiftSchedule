@@ -1189,6 +1189,16 @@ html[data-print-layout='desktop'] body.print-export-frame {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  html[data-print-layout='mobile'] .print-export-root .event-card,
+  html[data-print-layout='mobile'] .print-export-root .project-name,
+  html[data-print-layout='mobile'] .print-export-root .location-name,
+  html[data-print-layout='mobile'] .print-export-root .raw-name-line,
+  html[data-print-layout='mobile'] .print-export-root .period-line,
+  html[data-print-layout='mobile'] .print-export-root .same-project-peers-line {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 }
 
 html[data-print-layout='mobile'] .print-export-root .month-section {
@@ -1197,4 +1207,105 @@ html[data-print-layout='mobile'] .print-export-root .month-section {
 
 html[data-print-layout='desktop'] .print-export-root .month-section {
   max-width: 900px;
+}
+
+/*
+ * 匯出 iframe 版面鎖定（不依 viewport media query，列印時亦生效）
+ * mobile：對齊 @media (max-width: 600px) 螢幕手機版
+ */
+html[data-print-layout='mobile'] .print-export-root .app-header h1 {
+  font-size: 1.15rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .legend {
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .legend-item {
+  font-size: 0.72rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .month-section {
+  margin-bottom: 32px;
+  border-radius: 12px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .month-header {
+  padding: 12px;
+  font-size: 0.95rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .month-section--empty {
+  margin-bottom: 24px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .month-header--empty {
+  padding: 12px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .month-empty-body {
+  padding: 16px;
+  font-size: 0.85rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .day-header {
+  padding: 8px 2px;
+  font-size: 0.72rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .day-cell {
+  min-height: 72px;
+  padding: 4px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .date-num {
+  font-size: 0.76rem;
+  margin-bottom: 3px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .event-card {
+  font-size: 0.62rem;
+  padding: 3px 4px;
+  margin-top: 2px;
+  gap: 2px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .project-name {
+  font-size: 0.66rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .location-name {
+  font-size: 0.6rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .raw-name-line {
+  font-size: 0.58rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .period-line {
+  font-size: 0.56rem;
+  padding: 1px 5px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .same-project-peers-line {
+  font-size: 0.56rem;
+  margin-top: 1px;
+  padding-top: 2px;
+}
+
+html[data-print-layout='mobile'] .print-export-root .day-diff-badge {
+  font-size: 0.65rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .day-diff-summary {
+  font-size: 0.58rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .diff-ghost-tag {
+  font-size: 0.6rem;
+}
+
+html[data-print-layout='mobile'] .print-export-root .diff-baseline-hint {
+  font-size: 0.6rem;
 }
