@@ -293,6 +293,7 @@ function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
       schedule,
       dateStr,
       ev.project,
+      ev.location,
       personKey
     );
     if (peers.length) {

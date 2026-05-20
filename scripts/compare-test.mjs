@@ -129,12 +129,12 @@ assert(cmp.summary.modified === 1 && cmp.summary.total === 1);
     },
   };
   assert(
-    JSON.stringify(findSameProjectPeers(baseline, '2026-05-20', 'P', '甲')) ===
+    JSON.stringify(findSameProjectPeers(baseline, '2026-05-20', 'P', '', '甲')) ===
       JSON.stringify(['乙']),
     'baseline peers for deleted shift'
   );
   assert(
-    JSON.stringify(findSameProjectPeers(current, '2026-05-20', 'P', '甲')) ===
+    JSON.stringify(findSameProjectPeers(current, '2026-05-20', 'P', '', '甲')) ===
       JSON.stringify(['乙', '丙']),
     'current peers differ'
   );
@@ -171,7 +171,13 @@ assert(cmp.summary.modified === 1 && cmp.summary.total === 1);
   const ghost = compareSchedules(base, curr).dayDiffByPerson[person]?.[date]
     ?.ghosts?.[0];
   assert(ghost, 'expected ghost for 呂小遠 5/20');
-  const peers = findSameProjectPeers(base, date, ghost.project, person);
+  const peers = findSameProjectPeers(
+    base,
+    date,
+    ghost.project,
+    ghost.location,
+    person
+  );
   assert(
     JSON.stringify(peers) === JSON.stringify(['鴨子']),
     `ghost peers should be 鴨子 only, got ${peers.join('、')}`
