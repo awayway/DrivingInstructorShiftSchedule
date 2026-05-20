@@ -100,11 +100,10 @@ function buildColumnIslands(endCol, dateCol) {
  * @param {number[]} islandCols
  * @param {unknown[][]} grid
  * @param {number} c
- * @param {number} r
  * @param {Set<number>} personCol
  * @param {Set<number>} dateCol
  */
-function periodForColumn(islandCols, grid, c, r, personCol, dateCol) {
+function explicitPeriodColumnForAssignment(islandCols, grid, c, personCol, dateCol) {
   const h0 = (col) => (grid[0][col] != null ? String(grid[0][col]).trim() : '');
   const islandSet = new Set(islandCols);
   const minCol = islandCols.length ? Math.min(...islandCols) : c;
@@ -143,9 +142,112 @@ function periodForColumn(islandCols, grid, c, r, personCol, dateCol) {
 
   for (let col = c - 1; col >= minCol; col--) {
     if (!islandSet.has(col)) continue;
-    if (h0(col) === '期別') return grid[r][col];
+    if (h0(col) === '期別') return col;
   }
   return null;
+}
+
+/**
+ * @param {number[]} islandCols
+ * @param {unknown[][]} grid
+ * @param {number} lastDataRow
+ * @param {Set<number>} personCol
+ * @param {Set<number>} dateCol
+ * @param {Set<string>} knownNames
+ * @param {import('./resolvePersonNames.js').PersonIndex} personIndex
+ * @param {Map<string, string>} headerToCanonical
+ */
+function buildImplicitPeriodMapping(
+  islandCols,
+  grid,
+  lastDataRow,
+  personCol,
+  dateCol,
+  knownNames,
+  personIndex,
+  headerToCanonical
+) {
+  /** @type {Set<number>} */
+  const implicitPeriodCol = new Set();
+  /** @type {Map<number, number>} assignmentCol -> periodSourceCol */
+  const implicitSourceForCol = new Map();
+
+  const islandSet = new Set(islandCols);
+  const h0 = (col) => (grid[0][col] != null ? String(grid[0][col]).trim() : '');
+
+  /** @type {{ project: string, cols: number[] }[]} */
+  const blocks = [];
+  let curProject = null;
+  /** @type {number[]} */
+  let curCols = [];
+
+  for (const col of islandCols) {
+    if (!islandSet.has(col)) continue;
+    if (personCol.has(col) || dateCol.has(col)) continue;
+    const project = h0(col);
+    if (!project || project === '期別') {
+      if (curProject && curCols.length) {
+        blocks.push({ project: curProject, cols: curCols });
+      }
+      curProject = null;
+      curCols = [];
+      continue;
+    }
+
+    if (curProject === project) {
+      curCols.push(col);
+    } else {
+      if (curProject && curCols.length) blocks.push({ project: curProject, cols: curCols });
+      curProject = project;
+      curCols = [col];
+    }
+  }
+  if (curProject && curCols.length) blocks.push({ project: curProject, cols: curCols });
+
+  for (const b of blocks) {
+    if (b.cols.length < 2) continue;
+    const L = b.cols[0];
+
+    // block 左側已有顯式期別欄時，不啟用隱式期別
+    const explicitCol = explicitPeriodColumnForAssignment(islandCols, grid, L, personCol, dateCol);
+    if (explicitCol != null) continue;
+
+    let N = 0;
+    let T = 0;
+    for (let r = DATA_START_ROW; r <= lastDataRow; r++) {
+      const dateStr = rowDateStr(grid, r);
+      if (!dateStr) continue;
+
+      const rawCell = grid[r][L];
+      if (rawCell == null) continue;
+      const s = String(rawCell).trim();
+      if (!s) continue;
+
+      T++;
+
+      const tokens = splitAssignmentTokens(rawCell, knownNames);
+      let hasAnyPerson = false;
+      for (const token of tokens) {
+        const resolved = resolveAssignmentToken(token, personIndex, headerToCanonical);
+        if (resolved.type === 'person' && resolved.people.length) {
+          hasAnyPerson = true;
+          break;
+        }
+      }
+      if (hasAnyPerson) N++;
+    }
+
+    if (T === 0) continue; // 無樣本，不啟用隱式期別
+    if (N > T / 2) continue; // 嚴格多數為人名格，維持指派
+
+    implicitPeriodCol.add(L);
+    for (const c of b.cols) {
+      if (c === L) continue;
+      implicitSourceForCol.set(c, L);
+    }
+  }
+
+  return { implicitPeriodCol, implicitSourceForCol };
 }
 
 /**
@@ -235,6 +337,25 @@ export function parseShiftWorkbook(arrayBuffer) {
     return islands.find((is) => is.includes(c)) || null;
   }
 
+  /** @type {Set<number>} */
+  const implicitPeriodCols = new Set();
+  /** @type {Map<number, number>} */
+  const implicitPeriodSourceForCol = new Map();
+  for (const island of islands) {
+    const { implicitPeriodCol, implicitSourceForCol } = buildImplicitPeriodMapping(
+      island,
+      grid,
+      lastDataRow,
+      personCol,
+      dateCol,
+      knownNames,
+      personIndex,
+      headerToCanonical
+    );
+    for (const c of implicitPeriodCol) implicitPeriodCols.add(c);
+    for (const [c, src] of implicitSourceForCol) implicitPeriodSourceForCol.set(c, src);
+  }
+
   /** @type {Record<string, Record<string, Array<{ project: string, location: string, period: string | null, rawName?: string }>>>} */
   const byPerson = {};
   /** @type {Map<string, Set<string>>} */
@@ -276,6 +397,7 @@ export function parseShiftWorkbook(arrayBuffer) {
       if (personCol.has(c)) continue;
       if (dateCol.has(c)) continue;
       if (grid[0][c] === '期別') continue;
+      if (implicitPeriodCols.has(c)) continue;
 
       const project = grid[0][c] != null ? String(grid[0][c]).trim() : '';
       if (!project || project === '期別') continue;
@@ -286,8 +408,15 @@ export function parseShiftWorkbook(arrayBuffer) {
       const island = islandForCol(c);
       let periodVal = null;
       if (island) {
-        const pv = periodForColumn(island, grid, c, r, personCol, dateCol);
-        if (pv != null && String(pv).trim() !== '') periodVal = String(pv).trim();
+        const explicitCol = explicitPeriodColumnForAssignment(island, grid, c, personCol, dateCol);
+        if (explicitCol != null) {
+          const pv = grid[r][explicitCol];
+          if (pv != null && String(pv).trim() !== '') periodVal = String(pv).trim();
+        } else if (implicitPeriodSourceForCol.has(c)) {
+          const src = implicitPeriodSourceForCol.get(c);
+          const pv = src != null ? grid[r][src] : null;
+          if (pv != null && String(pv).trim() !== '') periodVal = String(pv).trim();
+        }
       }
 
       const rawCell = grid[r][c];
