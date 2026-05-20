@@ -12,6 +12,13 @@ import {
   renderCompareDialog as renderCompareDialogUi,
   renderPersonDiffPanel as renderPersonDiffPanelUi,
 } from './compareUi.js';
+import {
+  canExportPdf,
+  detectDefaultPrintLayout,
+  getExportBlockReason,
+  getExportPreview,
+  runPrintExport,
+} from './exportPdf.js';
 import { findSameProjectPeers } from './findSameProjectPeers.js';
 import { parseShiftWorkbook, OTHER_KEY } from './parseShiftWorkbook.js';
 
@@ -42,8 +49,14 @@ const dialogOverlay = document.getElementById('dialog-overlay');
 const dialogPeople = document.getElementById('dialog-people');
 const dialogView = document.getElementById('dialog-view');
 const dialogCompare = document.getElementById('dialog-compare');
+const dialogMore = document.getElementById('dialog-more');
+const exportBlockHint = document.getElementById('export-block-hint');
+const exportReadyPanel = document.getElementById('export-ready-panel');
+const exportPreviewEl = document.getElementById('export-preview');
+const btnExportPdf = document.getElementById('btn-export-pdf');
+const appHeader = document.querySelector('.app-header');
 
-/** @type {'people' | 'view' | 'compare' | null} */
+/** @type {'people' | 'view' | 'compare' | 'more' | null} */
 let openDialogName = null;
 /** @type {HTMLButtonElement | null} */
 let dialogTriggerBtn = null;
@@ -54,6 +67,7 @@ const DIALOGS = {
   people: dialogPeople,
   view: dialogView,
   compare: dialogCompare,
+  more: dialogMore,
 };
 
 const CHANGE_TYPE_LABEL = {
@@ -126,9 +140,81 @@ function updatePersonSummary() {
 function setNavExpanded(dialogName) {
   for (const btn of NAV_BTNS) {
     const key = btn.getAttribute('data-dialog');
-    if (key === 'more') continue;
     btn.setAttribute('aria-expanded', key === dialogName ? 'true' : 'false');
   }
+}
+
+function getExportViewState() {
+  return {
+    monthFilterFutureOnly: Boolean(monthFilterFutureOnly?.checked),
+    showEmptyMonths: Boolean(showEmptyMonths?.checked),
+    showLocation: Boolean(viewShowLocation?.checked),
+    showPeriod: Boolean(viewShowPeriod?.checked),
+    showAlias: Boolean(viewShowAlias?.checked),
+    showSameProjectPeers: Boolean(viewShowSameProjectPeers?.checked),
+  };
+}
+
+function getExportContext() {
+  return {
+    parsed,
+    selectedPerson,
+    collectMonths,
+    applyFutureMonthFilter,
+    expandMonthsWithGaps,
+    getPersonDisplayName,
+    isDiffModeActive,
+    viewState: getExportViewState(),
+  };
+}
+
+function updateMoreDialog() {
+  if (!exportBlockHint || !exportReadyPanel || !btnExportPdf) return;
+  const ctx = getExportContext();
+  const reason = getExportBlockReason(ctx);
+  if (reason) {
+    exportReadyPanel.hidden = true;
+    exportBlockHint.hidden = false;
+    if (reason === 'no-import') {
+      exportBlockHint.textContent = '請先以頂部「匯入總排班表」匯入。';
+    } else if (reason === 'filtered-empty') {
+      exportBlockHint.textContent =
+        '目前勾選「只顯示本月及未來月份」時沒有可匯出的月份；取消勾選即可匯出較早的排程。';
+    } else {
+      exportBlockHint.textContent = '此選項尚無排班資料，無法匯出。';
+    }
+    btnExportPdf.disabled = true;
+    return;
+  }
+  exportBlockHint.hidden = true;
+  exportReadyPanel.hidden = false;
+  btnExportPdf.disabled = false;
+  const preview = getExportPreview(ctx);
+  if (exportPreviewEl && preview) {
+    exportPreviewEl.innerHTML = '';
+    for (const line of [preview.personLine, preview.monthLine, preview.viewLine]) {
+      const p = document.createElement('p');
+      p.textContent = line;
+      exportPreviewEl.appendChild(p);
+    }
+  }
+}
+
+function applyDefaultPrintLayoutRadios() {
+  const layout = detectDefaultPrintLayout();
+  const radio = document.querySelector(
+    `input[name="print-layout"][value="${layout}"]`
+  );
+  if (radio instanceof HTMLInputElement) radio.checked = true;
+}
+
+/** @returns {'mobile' | 'desktop'} */
+function getSelectedPrintLayout() {
+  const checked = document.querySelector('input[name="print-layout"]:checked');
+  if (checked instanceof HTMLInputElement && checked.value === 'desktop') {
+    return 'desktop';
+  }
+  return 'mobile';
 }
 
 function isDiffModeActive() {
@@ -157,7 +243,7 @@ function updateBaselineDiffHint() {
 }
 
 /**
- * @param {'people' | 'view' | 'compare'} name
+ * @param {'people' | 'view' | 'compare' | 'more'} name
  * @param {HTMLButtonElement} [triggerBtn]
  */
 function openDialog(name, triggerBtn) {
@@ -175,8 +261,12 @@ function openDialog(name, triggerBtn) {
   panel.hidden = false;
   document.body.classList.add('dialog-open');
   setNavExpanded(name);
+  if (name === 'more') {
+    applyDefaultPrintLayoutRadios();
+    updateMoreDialog();
+  }
   const focusTarget = panel.querySelector(
-    'input:not([disabled]), button.dialog__close'
+    'input:not([disabled]), button.dialog__close, button.btn-export-pdf:not([disabled])'
   );
   if (focusTarget instanceof HTMLElement) focusTarget.focus();
 }
@@ -189,6 +279,7 @@ function closeAllDialogs() {
   dialogPeople.hidden = true;
   dialogView.hidden = true;
   dialogCompare.hidden = true;
+  dialogMore.hidden = true;
   document.body.classList.remove('dialog-open');
   setNavExpanded(null);
   if (dialogTriggerBtn) {
@@ -616,10 +707,12 @@ function renderCalendar() {
     renderEmptyHint();
     updatePersonSummary();
     renderPersonDiffPanel();
+    updateMoreDialog();
     return;
   }
   updatePersonSummary();
   renderPersonDiffPanel();
+  updateMoreDialog();
   const key = selectedPerson;
   const allMonths = collectMonths(key);
   if (!allMonths.length) {
@@ -808,6 +901,7 @@ function onPersonRadioChange() {
   fillLegend();
   renderCalendar();
   updatePersonSummary();
+  updateMoreDialog();
   closeAllDialogs();
 }
 
@@ -848,6 +942,7 @@ async function onFile(file) {
     renderCalendar();
     updatePersonSummary();
     refreshDiffUi();
+    updateMoreDialog();
   } catch (e) {
     parsed = null;
     projectClassMap.clear();
@@ -858,6 +953,7 @@ async function onFile(file) {
     updatePersonSummary();
     renderEmptyHint();
     refreshDiffUi();
+    updateMoreDialog();
     showError(e instanceof Error ? e.message : String(e));
   }
 }
@@ -883,32 +979,39 @@ personRadioList.addEventListener('change', (e) => {
 
 monthFilterFutureOnly.addEventListener('change', () => {
   renderCalendar();
+  updateMoreDialog();
 });
 
 showEmptyMonths?.addEventListener('change', () => {
   renderCalendar();
+  updateMoreDialog();
 });
 
 viewShowLocation?.addEventListener('change', () => {
   renderCalendar();
+  updateMoreDialog();
 });
 
 viewShowPeriod?.addEventListener('change', () => {
   renderCalendar();
+  updateMoreDialog();
 });
 
 viewShowAlias?.addEventListener('change', () => {
   renderCalendar();
+  updateMoreDialog();
 });
 
 viewShowSameProjectPeers?.addEventListener('change', () => {
   renderCalendar();
+  updateMoreDialog();
 });
 
 viewShowBaselineDiff?.addEventListener('change', () => {
   refreshDiffUi();
   fillLegend();
   renderCalendar();
+  updateMoreDialog();
 });
 
 baselineFileInput?.addEventListener('change', () => {
@@ -920,9 +1023,13 @@ baselineFileInput?.addEventListener('change', () => {
 for (const btn of NAV_BTNS) {
   btn.addEventListener('click', () => {
     const dialog = btn.getAttribute('data-dialog');
-    if (dialog === 'more') return;
-    if (dialog === 'people' || dialog === 'view' || dialog === 'compare') {
-      openDialog(dialog, btn);
+    if (
+      dialog === 'people' ||
+      dialog === 'view' ||
+      dialog === 'compare' ||
+      dialog === 'more'
+    ) {
+      openDialog(/** @type {'people' | 'view' | 'compare' | 'more'} */ (dialog), btn);
       if (dialog === 'compare') renderCompareDialog();
     }
   });
@@ -932,17 +1039,32 @@ dialogOverlay.addEventListener('click', (e) => {
   if (e.target === dialogOverlay) closeAllDialogs();
 });
 
-for (const panel of [dialogPeople, dialogView, dialogCompare]) {
+for (const panel of [dialogPeople, dialogView, dialogCompare, dialogMore]) {
   panel?.addEventListener('click', (e) => e.stopPropagation());
   const closeBtn = panel?.querySelector('.dialog__close');
   closeBtn?.addEventListener('click', closeAllDialogs);
 }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && openDialogName) closeAllDialogs();
+btnExportPdf?.addEventListener('click', async () => {
+  const ctx = getExportContext();
+  if (!canExportPdf(ctx)) return;
+  const layout = getSelectedPrintLayout();
+  closeAllDialogs();
+  await runPrintExport(layout, {
+    headerEl: appHeader instanceof HTMLElement ? appHeader : null,
+    legendEl: legendEl instanceof HTMLElement ? legendEl : null,
+    personDiffPanelEl:
+      personDiffPanel instanceof HTMLElement ? personDiffPanel : null,
+    calendarRootEl: calendarRoot instanceof HTMLElement ? calendarRoot : null,
+  });
 });
 
 fillPersonRadios();
 renderEmptyHint();
 updatePersonSummary();
 updateBaselineDiffHint();
+updateMoreDialog();
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && openDialogName) closeAllDialogs();
+});

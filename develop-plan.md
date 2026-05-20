@@ -202,7 +202,7 @@
 | 月份篩選     | **底欄 → 檢視 sheet**                                   | 核取方塊文案：**「只顯示本月及未來月份」**；**預設勾選**。**勾選時**：僅顯示「本月」（以瀏覽器**本日**所屬曆月為準）及**之後**、且當前人員有排程事件之月份。**未勾選時**：顯示該人員**所有**含事件之月份（含本月之前）。變更後即時重繪月曆。                                                             |
 | 無資料月份    | **底欄 → 檢視 sheet**                                   | 核取方塊文案：**「顯示無資料月份」**；**預設勾選**。**勾選時**：於畫面上**相鄰兩個有資料月**之間，對曆月連續但無事件之月份各插入一**幽靈月份**區塊（見下節）。**未勾選時**：僅渲染有排程之完整月曆（現行行為）。與月份篩選連動，見下節規則 3。                                                             |
 | 與上一版比較   | **底欄 → 比較 dialog**                                  | 見 **第 10 節**（待實作）：匯入上一版、全體摘要／變更卡；關閉後月曆 diff（方案 2＋1b）；主內容區目前人員摘要／變更卡。                                                                                                                             |
-| 更多（預留）   | **底欄 → 更多**                                         | Phase 1：**點擊無反應**。未來：匯出 PDF、Excel／CSV 等（**不含**匯入）。                                                                                                                                               |
+| 更多       | **底欄 → 更多**                                         | 開啟 `#dialog-more`：**匯出 PDF**（iframe 列印）；規格見 **第 11 節**。本階段不含 CSV／Excel。                                                                                                                                               |
 | 月曆       | 主內容區                                                | 依當前人員收集日期 → 套用檢視 sheet 之月份篩選 → 組裝「顯示用月份序列」（含**有資料月**與可選之**無資料月**）→ 有資料月呼叫 `buildMonth`、無資料月呼叫 `buildEmptyMonthPlaceholder`；單日 **forEach** 渲染多個 `event-card`。                                     |
 | 樣式       | 全站                                                  | 自 `example/calendar.html` 抽出 CSS；專案字串 map 至 `proj-`* class；含底欄與 sheet。                                                                                                                           |
 | 圖例       | 主內容區（header 下）                                      | 動態依專案生成；比較模式另加 diff 圖例（第 10 節）。                                                                                                                                                                  |
@@ -682,5 +682,151 @@
 | 2026-05-21 | **隱式期別採計**：僅排除「該列無有效日期」與「`L` 儲存格空白」；其餘非空白皆採計（`Date`／純數字等不再比照 §4.3 指派略過而排除）；§4.2 步驟 3；**待實作** |
 | 2026-05-21 | **無表頭專案名之延伸指派欄**：第 1 列空白且自第 3 列起採計與步驟 3 一致、`N > T/2` 視為人名格多數 → 併入左側最近專案為指派欄；地點第 2 列空白時先取錨定欄第 2 列，錨定為隱式期別時改取 block 內其右第一指派欄第 2 列；不加大 block 寬度；§2 新列、§4.2 步驟 4 拆為 4a／4b、§6；**待實作** |
 | 2026-05-20 | **月曆 peers 行**：由「同天同專案」改為「**同天同專案同地點**」；地點空字串之邊界規則、檢視文案「顯示同天同專案同地點的人員」、§5 新小節、§6 驗收列、`shiftTotalTable0519_ori.xlsx` 範例；**已實作**（`findSameProjectPeers`、`fillEventCard`、`index.html`／`docs`） |
+
+---
+
+## 11. 匯出 PDF（規格，待實作）
+
+> **狀態**：**已實作**（2026-05-20）。方案 A + iframe 列印（390／900px）、篩選零月份禁用、dialog 僅 PDF。底欄「更多」可與 `[ui_develop_plan.md](./ui_develop_plan.md)` §6.4 交叉對照（本節 **不含** CSV／Excel 占位）。
+
+### 11.1 目標與範圍
+
+使用者於主畫面調好人員與檢視設定後，自底欄 **「更多」** 將**目前畫面上所見**之個人月曆（及畫面上已顯示之圖例、比較摘要等）匯出為 PDF。
+
+| 項目 | 規格 |
+| ---- | ---- |
+| **技術** | **方案 A**：瀏覽器 **`window.print()`** ＋ **`@media print` CSS**；不引入 html2canvas／jsPDF 等產檔函式庫（Phase 1 匯出僅 PDF）。 |
+| **內容原則** | **所見即所得（WYSIWYG）**：目前檢視選項怎麼顯示，PDF 就怎麼印；**不另做**「含圖例」「含頁首／匯出日期」等匯出專用勾選項。 |
+| **人員範圍** | **僅目前選取的一位**（`selectedPerson`）；與 Phase 1 單選人員一致。 |
+| **月份範圍** | 與 `renderCalendar()` 相同：`collectMonths` → `applyFutureMonthFilter` →（若勾選）`expandMonthsWithGaps`；**不**在匯出 dialog 另設月份覆寫。 |
+| **比較模式** | **全部照畫面印**：若已匯入上一版且勾選「顯示與上一版差異」，PDF 含 `#person-diff-panel`、月曆 diff 角標／邊框／Ghost 卡、圖例 diff 列等（與第 10 節月曆行為一致）。 |
+| **檔名** | **不提供**匯出前編輯檔名；由使用者於瀏覽器「列印 → 另存 PDF」對話框自行命名（各平台預設檔名不一致，產品不保證）。 |
+| **紙張** | **不指定**紙張尺寸與方向；交給使用者於系統列印設定中選擇（A4 直向／橫向等）。 |
+| **隱私** | 與全站相同：僅瀏覽器本地列印，不上傳伺服器。 |
+
+### 11.2 產品定案（2026-05-20）
+
+| # | 議題 | 定案 |
+| - | ---- | ---- |
+| 1 | 比較模式是否進 PDF | **是**，畫面上有就印（WYSIWYG）。 |
+| 2 | 版面 | 匯出 dialog 僅 **手機版**／**電腦版** 二選一（segmented 或 radio）；**開啟 dialog 時預設**：依目前裝置與 §9 相同斷點自動選——`min-width: 768px` 或 `(min-width: 600px) and (orientation: landscape)` → **電腦版**，其餘 → **手機版**。 |
+| 3 | 檔名／日期格式 | **不做**匯出前檔名編輯；不規範 PDF 檔名格式。 |
+| 4 | 列印紙張 | **C**：不指定，交給使用者列印設定。 |
+| 5 | Header 列印範圍 | **實作最簡**：不新增匯出專用頁首；`@media print` **僅隱藏**互動與導覽（見 §11.5），其餘維持頁面既有 DOM 可見性——標題、副標、`#person-summary`、圖例、月曆等若畫面上有則一併印出。 |
+| 6 | 篩選後零月份 | **禁用匯出**：與 `renderCalendar()` 相同——`collectMonths` 為空，或經 `applyFutureMonthFilter` 後為空（主畫面顯示「只顯示本月及未來月份」提示時），皆視為不可匯出。 |
+| 7 | 列印技術路線 | **Phase 1 即採 iframe**：隱藏 iframe 固定寬度（手機 **390px**、電腦 **900px**）承載複製之 DOM，於 iframe 內 `window.print()`；仍屬方案 A（無 jsPDF／html2canvas）。 |
+| 8 | 「更多」dialog 範圍 | **僅「匯出 PDF」**；本階段 **不** 放 CSV／Excel 按鈕或「即將推出」占位。 |
+
+**版面與 RWD 說明（實作必讀）**：主頁面 `window.print()` **無法保證**列印引擎採用與螢幕相同 viewport。列印時改在 **隱藏 iframe** 內組版：iframe 寬度手機 **390px**、電腦 **900px**，`html` 設 **`data-print-layout="mobile"|"desktop"`**，並載入同站 `styles.css`；`@media print` 內依該屬性微調字級／分頁（與 `max-width: 600px`／`.month-section` max-width 900px 語意對齊）。複製 DOM 來自主畫面（header 去 toolbar、可見之 legend／diff panel／`#calendar-root`），WYSIWYG。
+
+### 11.3 導覽與「更多」Dialog
+
+| 項目 | 規格 |
+| ---- | ---- |
+| 入口 | 底欄 **「更多」**（`data-dialog="more"`）；Phase 1 現況為 no-op，實作時改為 `openDialog('more')`。 |
+| DOM | `#dialog-overlay` 內新增 `#dialog-more`（`.dialog`、與人員／檢視 dialog 同一套置中樣式）。 |
+| 標題 | `更多` |
+
+#### 狀態 A：尚未匯入新版
+
+- 主按鈕 **匯出 PDF**（或同義文案）**禁用**。
+- 說明：請先以頂部 **「匯入總排班表」** 匯入。
+
+#### 狀態 B：已匯入但不可匯出（無可列印月份）
+
+- **匯出 PDF** 禁用。條件與 `canExportPdf()` 一致，含兩類：
+  - 當前人員 **`collectMonths` 為空**（主畫面「此選項尚無排班資料」）。
+  - 有歷史排程但 **「只顯示本月及未來月份」篩完為空**（主畫面篩選提示；**亦禁用**，不允許僅印 header＋提示文字）。
+
+#### 狀態 C：可匯出
+
+1. **匯出摘要**（唯讀，供確認；文案須與 `getExportPreview()` 計算一致）  
+   - 人員：`{正規顯示名}`（含「其他」）  
+   - 月份：例 `2026年5月～12月（8 個月）`；若含幽靈月可註明「含無資料月份」  
+   - 可選一行簡述目前檢視（例：僅本月起、顯示地點／期別、含與上一版差異）——**非**額外勾選，僅描述現狀。  
+2. **版面**（必填其一）  
+   - ○ **手機版**  
+   - ○ **電腦版**  
+   - 預設依 §11.2 自動偵測。  
+3. 主按鈕 **匯出 PDF** → 關閉 dialog → `runPrintExport(layout)`：建立隱藏 iframe、複製可見區塊、設定 `data-print-layout` → iframe 內 `window.print()`（見 §11.2 定案 #7）。  
+4. 列印結束後移除 iframe（`afterprint`）；主畫面 **不** 殘留 `data-print-layout`（若曾暫改 `document.title` 亦還原；本規格**不**要求改 title）。
+
+**不提供**：匯出前檔名輸入、「含圖例」「含頁首與匯出日期」等 checkbox。
+
+### 11.4 列印內容範圍（WYSIWYG）
+
+與主畫面 DOM 對齊；**畫面上有顯示就印，沒有就不印**。
+
+| 區塊 | 列印 |
+| ---- | ---- |
+| `.app-header` 標題、副標、`#person-summary` | **印**（最簡：不另做 print-only 頁首） |
+| `.toolbar`（匯入按鈕、`#file-input`） | **不印** |
+| `#error-banner` | **不印** |
+| `#legend`（含專案色與 diff 圖例列） | 未 `hidden` 則 **印** |
+| `#person-diff-panel` | 比較模式且區塊可見則 **印** |
+| `#calendar-root`（含 `.month-section`、幽靈月、diff 樣式） | **印** |
+| `#main-nav` | **不印** |
+| `#dialog-overlay` 及所有 dialog | **不印** |
+
+卡片內文（地點、期別、別名、同專案同地點 peers、Ghost 卡欄位）**不**在匯出邏輯重寫，沿用 `fillEventCard` 與既有檢視 checkbox 之畫面結果。
+
+### 11.5 列印樣式（`@media print`）要點
+
+| 項目 | 規格 |
+| ---- | ---- |
+| 互動隱藏 | `#main-nav`、`#dialog-overlay`、`.toolbar`、`#error-banner` → `display: none`（或等同） |
+| 版面鎖定 | `html[data-print-layout="mobile"]`／`[data-print-layout="desktop"]` 下，於 `@media print` 覆寫月曆／圖例／header 字級與 `.month-section` 寬度等，使與螢幕手機版／電腦版視覺一致 |
+| 分頁 | 每個 `.month-section`（含 `--empty` 若畫面上有）建議 `page-break-after: always`；`.event-card`／`.day-cell` 適度 `break-inside: avoid`（實作時依瀏覽器微調） |
+| 顏色 | 專案色、diff 邊框／Ghost 樣式使用 `print-color-adjust: exact`（或 `-webkit-print-color-adjust: exact`），避免僅灰階列印時無法辨識 |
+| 背景 | 可將 `body` 背景改白，避免浪費墨水；月曆卡片白底保留 |
+
+**不實作**：`@page size` 強制 A4、匯出專用「匯出日期」列、程式指定 PDF 檔名。
+
+### 11.6 與其他流程的銜接
+
+| 情境 | 行為 |
+| ---- | ---- |
+| 切換人員／檢視 checkbox | 僅影響下次匯出內容；**不**自動列印 |
+| 重新匯入新版 | 匯出摘要與月曆內容跟隨新 `parsed` |
+| 匯入／重選上一版 | 若畫面開啟比較 UI，匯出 PDF 含 diff（WYSIWYG） |
+| 關閉「顯示與上一版差異」 | 畫面無 diff → PDF 亦無 diff 相關區塊 |
+| 多選人員（未來 Phase 3） | 本節 **不**涵蓋；屆時另訂匯出範圍 |
+
+### 11.7 建議模組與檔案（實作時）
+
+| 檔案 | 職責 |
+| ---- | ---- |
+| `src/exportPdf.js`（新建，建議） | `detectDefaultPrintLayout()`、`canExportPdf(ctx)`、`getExportPreview(ctx)`、`runPrintExport(layout, cloneSources)`（iframe 列印） |
+| `src/main.js` | 「更多」開關 dialog、匯出按鈕、禁用邏輯、呼叫 `runPrintExport` |
+| `index.html` | `#dialog-more` 結構 |
+| `styles.css` | `@media print`、 `html[data-print-layout]` 覆寫 |
+| `[ui_develop_plan.md](./ui_develop_plan.md)` | §6.4「更多」Dialog 文案與 Phase 4 對齊本節 |
+
+**應重用、不重寫**：`collectMonths`、`applyFutureMonthFilter`、`expandMonthsWithGaps`、`renderCalendar`／`buildMonth` 之月份序列；匯出摘要之月份清單須與上述一致。
+
+### 11.8 測試計劃（建議）
+
+| 案例 | 預期 |
+| ---- | ---- |
+| 未匯入即開「更多」 | 匯出 PDF 禁用並提示先匯入 |
+| 選人員無資料 | 匯出 PDF 禁用 |
+| 「只顯示本月及未來月份」篩完為空 | 匯出 PDF 禁用（與主畫面提示一致） |
+| iframe 手機／電腦寬度 | 列印預覽欄寬與 dialog 選項一致 |
+| 手機版／電腦版切換 | 列印預覽中月曆欄寬、字級與選項一致（實機 Chrome／Safari） |
+| 開 dialog 於桌面 | 預設勾選 **電腦版** |
+| 開 dialog 於手機直向 | 預設勾選 **手機版** |
+| 僅本月起、幽靈月、關閉地點 | PDF 與畫面一致 |
+| 比較模式開啟 | PDF 含 `#person-diff-panel`、diff 圖例、Ghost 卡與邊框 |
+| 比較模式關閉 | PDF 無 diff 區塊 |
+| 選「其他」 | 卡片 `rawName` 與畫面一致 |
+| 長行程（多月份） | 分頁合理、月份標題不與上頁斷裂過度 |
+| 列印後 | `data-print-layout` 已清除；主畫面可正常操作 |
+
+### 11.9 修訂紀錄
+
+| 日期 | 說明 |
+| ---- | ---- |
+| 2026-05-20 | 初版：方案 A、WYSIWYG、比較模式全印、手機／電腦二選一版面、不編輯檔名、不指定紙張、header 採最簡 print 隱藏策略；待實作 |
+| 2026-05-20 | 補充定案：篩選零月份禁用匯出；Phase 1 即 iframe 列印（390／900px）；「更多」僅 PDF、不含 CSV 占位 |
 
 

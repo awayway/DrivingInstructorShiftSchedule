@@ -1060,3 +1060,141 @@ body.dialog-open {
     padding-top: 2px;
   }
 }
+
+/* —— 更多 · 匯出 PDF dialog —— */
+.export-ready-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.export-preview {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #444;
+  padding: 12px 14px;
+  background: #f7f4ef;
+  border-radius: 10px;
+}
+
+.export-preview p + p {
+  margin-top: 6px;
+}
+
+.export-layout-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.export-layout-fieldset__legend {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5c5c5c;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.export-layout-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.export-layout-option + .export-layout-option {
+  margin-top: 10px;
+}
+
+.export-layout-option input {
+  accent-color: #1a1a2e;
+}
+
+.btn-export-pdf {
+  width: 100%;
+}
+
+.btn-export-pdf:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* —— iframe 列印承載頁 —— */
+body.print-export-frame {
+  margin: 0;
+  padding: 16px 8px;
+  background: #fff;
+  min-height: auto;
+}
+
+html[data-print-layout='desktop'] body.print-export-frame {
+  padding: 32px 24px;
+}
+
+.print-export-root {
+  margin: 0 auto;
+}
+
+.print-export-root .app-header {
+  margin-bottom: 20px;
+}
+
+.print-export-root .legend {
+  margin-bottom: 20px;
+}
+
+.print-export-root .person-diff-panel {
+  margin-bottom: 20px;
+}
+
+@media print {
+  body.print-export-frame {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-export-root .toolbar,
+  .print-export-root #error-banner,
+  #main-nav,
+  #dialog-overlay {
+    display: none !important;
+  }
+
+  .print-export-root .month-section {
+    page-break-after: always;
+    break-after: page;
+    box-shadow: none;
+  }
+
+  .print-export-root .month-section:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .print-export-root .event-card,
+  .print-export-root .day-cell {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-export-root .event-card,
+  .print-export-root .legend-dot,
+  .print-export-root .day-cell--diff-add,
+  .print-export-root .day-cell--diff-chg,
+  .print-export-root .day-cell--diff-remove,
+  .print-export-root .event-card--ghost,
+  .print-export-root .legend-diff-sample {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+html[data-print-layout='mobile'] .print-export-root .month-section {
+  max-width: 100%;
+}
+
+html[data-print-layout='desktop'] .print-export-root .month-section {
+  max-width: 900px;
+}
