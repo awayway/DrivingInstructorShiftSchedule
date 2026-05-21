@@ -687,7 +687,7 @@
 
 ## 11. 匯出 PDF（規格，待實作）
 
-> **狀態**：**已實作**（2026-05-20）。方案 A + iframe 列印（390／900px）、篩選零月份禁用、dialog 僅 PDF。底欄「更多」可與 `[ui_develop_plan.md](./ui_develop_plan.md)` §6.4 交叉對照（本節 **不含** CSV／Excel 占位）。
+> **狀態**：**已實作**（2026-05-20，2026-05-21 補 iOS 匯出路徑）。桌面：**方案 A** + iframe 列印（390／900px）；**iOS／iPadOS**：html2canvas + jsPDF 直接下載 PDF（見 §11.2 #9）。篩選零月份禁用、dialog 僅 PDF。底欄「更多」可與 `[ui_develop_plan.md](./ui_develop_plan.md)` §6.4 交叉對照（本節 **不含** CSV／Excel 占位）。
 
 ### 11.1 目標與範圍
 
@@ -695,12 +695,12 @@
 
 | 項目 | 規格 |
 | ---- | ---- |
-| **技術** | **方案 A**：瀏覽器 **`window.print()`** ＋ **`@media print` CSS**；不引入 html2canvas／jsPDF 等產檔函式庫（Phase 1 匯出僅 PDF）。 |
-| **內容原則** | **所見即所得（WYSIWYG）**：目前檢視選項怎麼顯示，PDF 就怎麼印；**不另做**「含圖例」「含頁首／匯出日期」等匯出專用勾選項。 |
+| **技術** | **桌面／非 iOS**：**方案 A**——`window.print()` ＋ `@media print` CSS，隱藏 iframe（390／900px）。**iOS／iPadOS**：`html2canvas` + `jsPDF` 動態載入，主文件離屏 DOM 截圖後 `pdf.save()`（因 WebKit 列印常忽略版面與背景色）。 |
+| **內容原則** | **所見即所得（WYSIWYG）**：目前檢視選項怎麼顯示，PDF 就怎麼印；**不另做**「含圖例」「含頁首／匯出日期」等匯出專用勾選項（**檔名**內含列印日期時間，**不**另印在 PDF 內文）。 |
 | **人員範圍** | **僅目前選取的一位**（`selectedPerson`）；與 Phase 1 單選人員一致。 |
 | **月份範圍** | 與 `renderCalendar()` 相同：`collectMonths` → `applyFutureMonthFilter` →（若勾選）`expandMonthsWithGaps`；**不**在匯出 dialog 另設月份覆寫。 |
 | **比較模式** | **全部照畫面印**：若已匯入上一版且勾選「顯示與上一版差異」，PDF 含 `#person-diff-panel`、月曆 diff 角標／邊框／Ghost 卡、圖例 diff 列等（與第 10 節月曆行為一致）。 |
-| **檔名** | **不提供**匯出前編輯檔名；由使用者於瀏覽器「列印 → 另存 PDF」對話框自行命名（各平台預設檔名不一致，產品不保證）。 |
+| **檔名** | **不提供**匯出前編輯檔名。**桌面**：由使用者於「列印 → 另存 PDF」對話框自行命名。**iOS**：程式指定，格式見 §11.2 #3、`buildIosExportPdfFilename()`。 |
 | **紙張** | **不指定**紙張尺寸與方向；交給使用者於系統列印設定中選擇（A4 直向／橫向等）。 |
 | **隱私** | 與全站相同：僅瀏覽器本地列印，不上傳伺服器。 |
 
@@ -710,14 +710,19 @@
 | - | ---- | ---- |
 | 1 | 比較模式是否進 PDF | **是**，畫面上有就印（WYSIWYG）。 |
 | 2 | 版面 | 匯出 dialog 僅 **手機版**／**電腦版** 二選一（segmented 或 radio）；**開啟 dialog 時預設**：依目前裝置與 §9 相同斷點自動選——`min-width: 768px` 或 `(min-width: 600px) and (orientation: landscape)` → **電腦版**，其餘 → **手機版**。 |
-| 3 | 檔名／日期格式 | **不做**匯出前檔名編輯；不規範 PDF 檔名格式。 |
+| 3 | 檔名／日期格式 | **不做**匯出前檔名編輯。**iOS** 下載檔名固定為 **`排班表-{人名}-{列印日期}-{列印時間}.pdf`**：`{人名}`＝`getPersonDisplayName(selectedPerson)`；`{列印日期}`＝匯出當下本機 **`YYYYMMDD`**；`{列印時間}`＝本機 **`HHmmss`**（24 小時制）。例：`排班表-維鈞-20260520-143052.pdf`。非法檔名字元以 `_` 取代。實作：`buildIosExportPdfFilename()`。**桌面**仍不規範檔名。 |
 | 4 | 列印紙張 | **C**：不指定，交給使用者列印設定。 |
 | 5 | Header 列印範圍 | **實作最簡**：不新增匯出專用頁首；`@media print` **僅隱藏**互動與導覽（見 §11.5），其餘維持頁面既有 DOM 可見性——標題、副標、`#person-summary`、圖例、月曆等若畫面上有則一併印出。 |
 | 6 | 篩選後零月份 | **禁用匯出**：與 `renderCalendar()` 相同——`collectMonths` 為空，或經 `applyFutureMonthFilter` 後為空（主畫面顯示「只顯示本月及未來月份」提示時），皆視為不可匯出。 |
-| 7 | 列印技術路線 | **Phase 1 即採 iframe**：隱藏 iframe 固定寬度（手機 **390px**、電腦 **900px**）承載複製之 DOM，於 iframe 內 `window.print()`；仍屬方案 A（無 jsPDF／html2canvas）。 |
+| 7 | 列印技術路線 | **非 iOS**：隱藏 iframe 固定寬度（手機 **390px**、電腦 **900px**）承載複製 DOM，iframe 內 `window.print()`（方案 A）。**iOS／iPadOS**（`isIosExportClient()`）：主文件 `.print-canvas-export-mount` + `html2canvas` 逐段（intro、各 `.month-section`）截圖 + `jsPDF` 多頁拼接後 `save()`；`html` 設 `data-print-layout` 與螢幕手機／電腦版 CSS 一致。 |
 | 8 | 「更多」dialog 範圍 | **僅「匯出 PDF」**；本階段 **不** 放 CSV／Excel 按鈕或「即將推出」占位。 |
+| 9 | iOS 使用者體驗 | 匯出中按鈕文案 **「產生 PDF 中…」** 並禁用；完成後觸發系統下載／分享（非列印預覽）。失敗 `alert` 提示。 |
 
-**版面與 RWD 說明（實作必讀）**：主頁面 `window.print()` **無法保證**列印引擎採用與螢幕相同 viewport。列印時改在 **隱藏 iframe** 內組版：iframe 寬度手機 **390px**、電腦 **900px**，`html` 設 **`data-print-layout="mobile"|"desktop"`**，並載入同站 `styles.css`；`@media print` 內依該屬性微調字級／分頁（與 `max-width: 600px`／`.month-section` max-width 900px 語意對齊）。複製 DOM 來自主畫面（header 去 toolbar、可見之 legend／diff panel／`#calendar-root`），WYSIWYG。
+**版面與 RWD 說明（實作必讀）**：
+
+- **非 iOS**：主頁面 `window.print()` **無法保證**列印引擎採用與螢幕相同 viewport。列印時改在 **iframe** 內組版：寬度手機 **390px**、電腦 **900px**，`html` 設 **`data-print-layout="mobile"|"desktop"`**，樣式表與主頁相同來源（`link[rel=stylesheet]` 或 `BASE_URL/styles.css`）；`@media print` 內依該屬性微調字級／分頁。
+- **iOS**：不依賴列印引擎；離屏 mount（`transform: translateX(-120vw)` 等）先完整排版再截圖，寬度仍為 390／900px + `data-print-layout`。
+- 共通：複製 DOM 來自主畫面（header 去 toolbar、可見之 legend／diff panel／`#calendar-root`），WYSIWYG。
 
 ### 11.3 導覽與「更多」Dialog
 
@@ -748,8 +753,10 @@
    - ○ **手機版**  
    - ○ **電腦版**  
    - 預設依 §11.2 自動偵測。  
-3. 主按鈕 **匯出 PDF** → 關閉 dialog → `runPrintExport(layout)`：建立隱藏 iframe、複製可見區塊、設定 `data-print-layout` → iframe 內 `window.print()`（見 §11.2 定案 #7）。  
-4. 列印結束後移除 iframe（`afterprint`）；主畫面 **不** 殘留 `data-print-layout`（若曾暫改 `document.title` 亦還原；本規格**不**要求改 title）。
+3. 主按鈕 **匯出 PDF** → 關閉 dialog → `runPrintExport(layout, sources, { filename })`：  
+   - **非 iOS**：隱藏 iframe、複製 DOM、`data-print-layout` → `window.print()`；`afterprint` 移除 iframe。  
+   - **iOS**：主文件 mount + `html2canvas` + `jsPDF`；`filename`＝`buildIosExportPdfFilename(人名)`（§11.2 #3）。  
+4. 結束後主畫面 **不** 殘留 `data-print-layout`／mount（若曾暫改 `document.title` 亦還原；本規格**不**要求改 title）。
 
 **不提供**：匯出前檔名輸入、「含圖例」「含頁首與匯出日期」等 checkbox。
 
@@ -780,7 +787,7 @@
 | 顏色 | 專案色、diff 邊框／Ghost 樣式使用 `print-color-adjust: exact`（或 `-webkit-print-color-adjust: exact`），避免僅灰階列印時無法辨識 |
 | 背景 | 可將 `body` 背景改白，避免浪費墨水；月曆卡片白底保留 |
 
-**不實作**：`@page size` 強制 A4、匯出專用「匯出日期」列、程式指定 PDF 檔名。
+**不實作**：匯出專用「匯出日期」**內文列**（日期僅出現在 **iOS 檔名**，見 §11.2 #3）。**桌面**仍不程式指定檔名；**iOS** 檔名由 `buildIosExportPdfFilename()` 指定（§11.2 #3）。
 
 ### 11.6 與其他流程的銜接
 
@@ -796,7 +803,7 @@
 
 | 檔案 | 職責 |
 | ---- | ---- |
-| `src/exportPdf.js`（新建，建議） | `detectDefaultPrintLayout()`、`canExportPdf(ctx)`、`getExportPreview(ctx)`、`runPrintExport(layout, cloneSources)`（iframe 列印） |
+| `src/exportPdf.js` | `detectDefaultPrintLayout()`、`isIosExportClient()`、`buildIosExportPdfFilename()`、`canExportPdf(ctx)`、`getExportPreview(ctx)`、`runPrintExport()`（非 iOS：iframe 列印；iOS：canvas→PDF） |
 | `src/main.js` | 「更多」開關 dialog、匯出按鈕、禁用邏輯、呼叫 `runPrintExport` |
 | `index.html` | `#dialog-more` 結構 |
 | `styles.css` | `@media print`、 `html[data-print-layout]` 覆寫 |
@@ -821,6 +828,8 @@
 | 選「其他」 | 卡片 `rawName` 與畫面一致 |
 | 長行程（多月份） | 分頁合理、月份標題不與上頁斷裂過度 |
 | 列印後 | `data-print-layout` 已清除；主畫面可正常操作 |
+| iOS Safari／Chrome 匯出 | 下載 PDF；專案色與手機／電腦版寬度與選項一致；檔名符合 `排班表-{人名}-{YYYYMMDD}-{HHmmss}.pdf` |
+| iOS 多人名特殊字元 | 檔名非法字元替換為 `_`，仍可下載 |
 
 ### 11.9 修訂紀錄
 
@@ -828,5 +837,6 @@
 | ---- | ---- |
 | 2026-05-20 | 初版：方案 A、WYSIWYG、比較模式全印、手機／電腦二選一版面、不編輯檔名、不指定紙張、header 採最簡 print 隱藏策略；待實作 |
 | 2026-05-20 | 補充定案：篩選零月份禁用匯出；Phase 1 即 iframe 列印（390／900px）；「更多」僅 PDF、不含 CSV 占位 |
+| 2026-05-21 | iOS／iPadOS 改 html2canvas + jsPDF；iOS 檔名 `排班表-{人名}-{YYYYMMDD}-{HHmmss}.pdf`（`buildIosExportPdfFilename`）；桌面維持 iframe 列印與系統另存檔名 |
 
 

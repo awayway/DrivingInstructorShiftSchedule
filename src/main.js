@@ -13,6 +13,7 @@ import {
   renderPersonDiffPanel as renderPersonDiffPanelUi,
 } from './compareUi.js';
 import {
+  buildIosExportPdfFilename,
   canExportPdf,
   detectDefaultPrintLayout,
   getExportBlockReason,
@@ -1049,14 +1050,30 @@ btnExportPdf?.addEventListener('click', async () => {
   const ctx = getExportContext();
   if (!canExportPdf(ctx)) return;
   const layout = getSelectedPrintLayout();
+  const personName = ctx.getPersonDisplayName(ctx.selectedPerson);
   closeAllDialogs();
-  await runPrintExport(layout, {
-    headerEl: appHeader instanceof HTMLElement ? appHeader : null,
-    legendEl: legendEl instanceof HTMLElement ? legendEl : null,
-    personDiffPanelEl:
-      personDiffPanel instanceof HTMLElement ? personDiffPanel : null,
-    calendarRootEl: calendarRoot instanceof HTMLElement ? calendarRoot : null,
-  });
+  const prevLabel = btnExportPdf.textContent;
+  btnExportPdf.disabled = true;
+  btnExportPdf.textContent = '產生 PDF 中…';
+  try {
+    await runPrintExport(
+      layout,
+      {
+        headerEl: appHeader instanceof HTMLElement ? appHeader : null,
+        legendEl: legendEl instanceof HTMLElement ? legendEl : null,
+        personDiffPanelEl:
+          personDiffPanel instanceof HTMLElement ? personDiffPanel : null,
+        calendarRootEl: calendarRoot instanceof HTMLElement ? calendarRoot : null,
+      },
+      { filename: buildIosExportPdfFilename(personName) }
+    );
+  } catch (err) {
+    console.error(err);
+    window.alert('PDF 產生失敗，請稍後再試或改用電腦瀏覽器。');
+  } finally {
+    btnExportPdf.disabled = false;
+    btnExportPdf.textContent = prevLabel;
+  }
 });
 
 fillPersonRadios();

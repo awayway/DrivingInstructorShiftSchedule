@@ -11,6 +11,8 @@
     "compare-test": "node scripts/compare-test.mjs"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

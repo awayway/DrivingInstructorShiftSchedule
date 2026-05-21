@@ -1120,6 +1120,37 @@ body.dialog-open {
   cursor: not-allowed;
 }
 
+/* —— iOS canvas 匯出：主文件離屏承載（html2canvas 擷取） —— */
+.print-canvas-export-mount {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  margin: 0 auto;
+  padding: 16px 8px;
+  background: #fff;
+  pointer-events: none;
+  overflow: visible;
+  box-sizing: border-box;
+  transform: translateX(-120vw);
+}
+
+html[data-print-layout='desktop'] .print-canvas-export-mount {
+  padding: 32px 24px;
+}
+
+.print-canvas-intro .app-header {
+  margin-bottom: 20px;
+}
+
+.print-canvas-intro .legend {
+  margin-bottom: 20px;
+}
+
+.print-canvas-intro .person-diff-panel {
+  margin-bottom: 20px;
+}
+
 /* —— iframe 列印承載頁 —— */
 body.print-export-frame {
   margin: 0;
@@ -1149,6 +1180,31 @@ html[data-print-layout='desktop'] body.print-export-frame {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html[data-print-layout] body.print-export-frame,
+  html[data-print-layout] body.print-export-frame * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html[data-print-layout='mobile'] body.print-export-frame .print-export-root {
+    width: 390px !important;
+    max-width: 390px !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  html[data-print-layout='desktop'] body.print-export-frame .print-export-root {
+    width: 900px !important;
+    max-width: 900px !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   body.print-export-frame {
     background: #fff !important;
     -webkit-print-color-adjust: exact;
