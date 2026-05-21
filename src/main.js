@@ -320,6 +320,7 @@ function rebuildProjectClassMap() {
     for (const sched of Object.values(byPerson)) {
       for (const day of Object.values(sched)) {
         for (const ev of day) {
+          if (ev.kind === 'leave') continue;
           const name = ev.project?.trim();
           if (name) projects.add(name);
         }
@@ -349,12 +350,37 @@ function pad(n) {
 
 /**
  * @param {HTMLDivElement} card
- * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+ * @param {{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }} ev
+ * @param {string} personKey
+ */
+function fillLeaveEventCard(card, ev, personKey) {
+  const nameEl = document.createElement('div');
+  nameEl.className = 'leave-person-name';
+  nameEl.textContent =
+    personKey === OTHER_KEY && ev.rawName
+      ? ev.rawName
+      : getPersonDisplayName(personKey);
+  card.appendChild(nameEl);
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'leave-label';
+  labelEl.textContent = '請假';
+  card.appendChild(labelEl);
+}
+
+/**
+ * @param {HTMLDivElement} card
+ * @param {{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }} ev
  * @param {string} personKey
  * @param {string} [dateStr]
  * @param {{ full?: boolean, includePeers?: boolean, peerSchedule?: typeof parsed }} [opts]
  */
 function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
+  if (ev.kind === 'leave') {
+    fillLeaveEventCard(card, ev, personKey);
+    return;
+  }
+
   const full = opts.full === true;
   const includePeers = opts.includePeers !== false && !full;
   const showAlias = full || (viewShowAlias ? viewShowAlias.checked : true);
@@ -365,7 +391,6 @@ function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
   ) {
     const raw = document.createElement('div');
     raw.className = 'raw-name-line';
-    if (ev.rawName.trim().endsWith('X')) raw.classList.add('raw-name-line--x');
     raw.textContent = ev.rawName;
     card.appendChild(raw);
   }
@@ -411,12 +436,33 @@ function fillEventCard(card, ev, personKey, dateStr, opts = {}) {
 }
 
 /**
- * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+ * @param {{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }} ev
  * @param {string} personKey
  * @param {string} [dateStr]
  * @param {{ ghost?: boolean, diffClass?: string, baselineHint?: string }} [opts]
  */
 function createEventCardElement(ev, personKey, dateStr, opts = {}) {
+  if (ev.kind === 'leave') {
+    const card = document.createElement('div');
+    card.className = 'event-card event-card--leave';
+    if (opts.diffClass) card.classList.add(opts.diffClass);
+    if (opts.ghost) {
+      card.classList.add('event-card--diff-remove');
+      const tag = document.createElement('div');
+      tag.className = 'diff-ghost-tag';
+      tag.textContent = '刪除（上一版）';
+      card.appendChild(tag);
+    }
+    fillLeaveEventCard(card, ev, personKey);
+    if (opts.baselineHint) {
+      const hint = document.createElement('div');
+      hint.className = 'diff-baseline-hint';
+      hint.textContent = `原：${opts.baselineHint}`;
+      card.appendChild(hint);
+    }
+    return card;
+  }
+
   /** @type {import('./findSameProjectPeers.js').Parameters<typeof findSameProjectPeers>[0] | undefined} */
   const ghostPeerSchedule = opts.ghost ? baselineParsed ?? undefined : undefined;
   const card = document.createElement('div');
@@ -809,7 +855,10 @@ function fillLegend() {
   const key = selectedPerson;
   const sched = parsed.byPerson[key] || {};
   for (const day of Object.values(sched)) {
-    for (const ev of day) projects.add(ev.project);
+    for (const ev of day) {
+      if (ev.kind === 'leave') continue;
+      if (ev.project) projects.add(ev.project);
+    }
   }
   legendEl.innerHTML = '';
   for (const p of [...projects].sort()) {

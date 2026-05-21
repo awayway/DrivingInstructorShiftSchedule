@@ -5,6 +5,7 @@ import {
   dedupePeopleToCanonical,
   rawNameForEvent,
   resolveAssignmentToken,
+  resolveLeaveToken,
   splitAssignmentTokens,
 } from './resolvePersonNames.js';
 
@@ -172,6 +173,11 @@ function countPersonLikeSampleStats(grid, col, lastDataRow, knownNames, personIn
     const tokens = splitAssignmentTokens(rawCell, knownNames);
     let hasAnyPerson = false;
     for (const token of tokens) {
+      const leaveResolved = resolveLeaveToken(token, personIndex, headerToCanonical);
+      if (leaveResolved.type === 'leave') {
+        hasAnyPerson = true;
+        break;
+      }
       const resolved = resolveAssignmentToken(token, personIndex, headerToCanonical);
       if (resolved.type === 'person' && resolved.people.length) {
         hasAnyPerson = true;
@@ -465,13 +471,15 @@ export function parseShiftWorkbook(arrayBuffer) {
     for (const [col, m] of partial) extensionAssignmentMeta.set(col, m);
   }
 
-  /** @type {Record<string, Record<string, Array<{ project: string, location: string, period: string | null, rawName?: string }>>>} */
+  /** @type {Record<string, Record<string, Array<{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }>>>} */
   const byPerson = {};
   /** @type {Map<string, Set<string>>} */
   const seenEventKeys = new Map();
 
-  /** 同日同人（「其他」含 rawName）同專案／地點／期別僅保留一筆 */
+  /** 同日同人（「其他」含 rawName）同專案／地點／期別僅保留一筆；請假另計 */
+  /** @param {{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }} ev */
   function eventDedupKey(ev) {
+    if (ev.kind === 'leave') return `leave\x1e${ev.rawName ?? ''}`;
     const period = ev.period ?? '';
     const raw = ev.rawName ?? '';
     return `${ev.project}\x1e${ev.location}\x1e${period}\x1e${raw}`;
@@ -480,7 +488,7 @@ export function parseShiftWorkbook(arrayBuffer) {
   /**
    * @param {string} personKey
    * @param {string} dateStr
-   * @param {{ project: string, location: string, period: string | null, rawName?: string }} ev
+   * @param {{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }} ev
    */
   function pushEvent(personKey, dateStr, ev) {
     const bucketKey = `${personKey}\x1f${dateStr}`;
@@ -562,6 +570,25 @@ export function parseShiftWorkbook(arrayBuffer) {
       if (!tokens.length) continue;
 
       for (const token of tokens) {
+        const leaveResolved = resolveLeaveToken(token, personIndex, headerToCanonical);
+        if (leaveResolved.type === 'leave') {
+          const rn = rawNameForEvent(leaveResolved.rawName, leaveResolved.person);
+          pushEvent(leaveResolved.person, dateStr, {
+            kind: 'leave',
+            ...(rn != null ? { rawName: rn } : {}),
+          });
+          continue;
+        }
+        if (leaveResolved.type === 'other') {
+          pushEvent(OTHER_KEY, dateStr, {
+            project,
+            location,
+            period: periodVal,
+            rawName: leaveResolved.rawName,
+          });
+          continue;
+        }
+
         const resolved = resolveAssignmentToken(token, personIndex, headerToCanonical);
 
         if (resolved.type === 'other') {

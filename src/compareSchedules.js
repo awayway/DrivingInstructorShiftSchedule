@@ -1,6 +1,6 @@
 import { OTHER_KEY } from './parseShiftWorkbook.js';
 
-/** @typedef {{ project: string, location: string, period: string | null, rawName?: string }} ShiftEvent */
+/** @typedef {{ kind?: 'leave', rawName?: string } | { kind?: 'shift', project: string, location: string, period: string | null, rawName?: string }} ShiftEvent */
 
 /** @typedef {'add' | 'remove' | 'modify'} ChangeType */
 
@@ -51,7 +51,13 @@ function norm(v) {
 
 /** @param {ShiftEvent} ev */
 export function eventCompareKey(ev) {
+  if (ev.kind === 'leave') return `leave\x1e${norm(ev.rawName)}`;
   return `${norm(ev.project)}\x1e${norm(ev.location)}\x1e${norm(ev.period)}\x1e${norm(ev.rawName)}`;
+}
+
+/** @param {ShiftEvent} ev */
+function isLeaveEvent(ev) {
+  return ev.kind === 'leave';
 }
 
 /**
@@ -75,21 +81,26 @@ export function diffPersonDay(baselineEvents, currentEvents) {
   /** @type {Map<string, ShiftEvent[]>} */
   const byProjectCurr = new Map();
 
-  for (const ev of baseRemain) {
+  const leaveBase = baseRemain.filter(isLeaveEvent);
+  const leaveCurr = currPool.filter(isLeaveEvent);
+  const shiftBase = baseRemain.filter((e) => !isLeaveEvent(e));
+  const shiftCurr = currPool.filter((e) => !isLeaveEvent(e));
+
+  for (const ev of shiftBase) {
     const p = norm(ev.project);
     if (!byProjectBase.has(p)) byProjectBase.set(p, []);
     byProjectBase.get(p).push(ev);
   }
-  for (const ev of currPool) {
+  for (const ev of shiftCurr) {
     const p = norm(ev.project);
     if (!byProjectCurr.has(p)) byProjectCurr.set(p, []);
     byProjectCurr.get(p).push(ev);
   }
 
   /** @type {ShiftEvent[]} */
-  const adds = [];
+  const adds = [...leaveCurr];
   /** @type {ShiftEvent[]} */
-  const removes = [];
+  const removes = [...leaveBase];
   /** @type {Array<{ baseline: ShiftEvent, current: ShiftEvent }>} */
   const modifyPairs = [];
 
@@ -340,6 +351,7 @@ export function summarizePersonChanges(changesByPerson, personKey) {
 
 /** @param {ShiftEvent} ev */
 export function formatBaselineHint(ev) {
+  if (ev.kind === 'leave') return '請假';
   const parts = [norm(ev.project)];
   const loc = norm(ev.location);
   if (loc) parts.push(loc);

@@ -3,8 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   buildPersonIndex,
+  isLeaveToken,
   isScheduleDateNote,
   resolveAssignmentToken,
+  resolveLeaveToken,
   splitAssignmentTokens,
 } from '../src/resolvePersonNames.js';
 import { parseShiftWorkbook, OTHER_KEY } from '../src/parseShiftWorkbook.js';
@@ -25,6 +27,27 @@ console.assert(
   'date note should not split'
 );
 console.assert(isScheduleDateNote('3/23只有下午'), 'date note detect');
+
+const leaveIdx = buildPersonIndex(['維鈞', '林欣瑩', '駿', '字鈞']);
+const leaveHeader = new Map([
+  ['維鈞', '維鈞'],
+  ['林欣瑩', '林欣瑩'],
+  ['駿', '駿'],
+  ['字鈞', '字鈞'],
+]);
+console.assert(isLeaveToken('維鈞X'), '維鈞X is leave token');
+console.assert(
+  resolveLeaveToken('維X', leaveIdx, leaveHeader).type === 'leave',
+  '維X -> leave'
+);
+console.assert(
+  resolveLeaveToken('瑩X', leaveIdx, leaveHeader).person === '林欣瑩',
+  '瑩X -> 林欣瑩'
+);
+console.assert(
+  resolveLeaveToken('未知X', leaveIdx, leaveHeader).type === 'other',
+  'unknown X -> 其他'
+);
 
 // --- resolve: 考試一前綴 + 複合人名（先 normalize 再 blacklist）---
 const headerPeople = [
@@ -114,5 +137,13 @@ const xyExam = (byPerson['林欣瑩']?.['2026-03-16'] || []).some(
 );
 console.assert(jyExam, '俊穎 has 考試一俊瑩 on 2026-03-16');
 console.assert(xyExam, '林欣瑩 has 考試一俊瑩 on 2026-03-16');
+
+const buf519 = loadXlsx('shiftTotalTable0519_ori.xlsx');
+const parsed519 = parseShiftWorkbook(buf519);
+const weiLeave = (parsed519.byPerson['維鈞']?.['2026-05-24'] || []).filter(
+  (ev) => ev.kind === 'leave'
+);
+console.assert(weiLeave.length >= 1, '維鈞X on 2026-05-24 is leave');
+console.assert(weiLeave[0].rawName === '維鈞X', 'leave rawName preserved');
 
 console.log('parse-test OK');

@@ -247,6 +247,60 @@ function greedySegment(s, index) {
 }
 
 /**
+ * @param {string} token
+ * @returns {boolean}
+ */
+export function isLeaveToken(token) {
+  const t = String(token).trim();
+  if (!t.endsWith('X')) return false;
+  const namePart = t.slice(0, -1).trim();
+  return namePart.length > 0;
+}
+
+/**
+ * @typedef {{
+ *   type: 'leave',
+ *   person: string,
+ *   rawName: string,
+ * } | { type: 'notLeave' } | { type: 'other', rawName: string }} LeaveResolveResult
+ */
+
+/**
+ * @param {string} token
+ * @param {PersonIndex} index
+ * @param {Map<string, string>} headerToCanonical
+ * @returns {LeaveResolveResult}
+ */
+export function resolveLeaveToken(token, index, headerToCanonical) {
+  if (!isLeaveToken(token)) return { type: 'notLeave' };
+
+  const raw = String(token).trim();
+  const namePart = raw.slice(0, -1).trim();
+
+  if (isScheduleDateNote(raw)) return { type: 'other', rawName: raw };
+
+  if (headerToCanonical.has(namePart)) {
+    const person = headerToCanonical.get(namePart);
+    if (person) return { type: 'leave', person, rawName: raw };
+  }
+
+  for (const [headerRaw, canon] of headerToCanonical) {
+    if (canonicalPersonKey(headerRaw) === canonicalPersonKey(namePart) && canon) {
+      return { type: 'leave', person: canon, rawName: raw };
+    }
+  }
+
+  const norm = normalizeTokenForResolve(namePart);
+  if (!norm) return { type: 'other', rawName: raw };
+  if (isNonPersonNote(norm)) return { type: 'other', rawName: raw };
+
+  const whole = resolveSingleNormalized(norm, index);
+  if (whole) return { type: 'leave', person: whole, rawName: raw };
+
+  return { type: 'other', rawName: raw };
+}
+
+/**
  * @typedef {{
  *   type: 'person',
  *   people: string[],

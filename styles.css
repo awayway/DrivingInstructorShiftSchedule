@@ -560,10 +560,23 @@ body.dialog-open {
   word-break: break-word;
 }
 
-.raw-name-line--x {
-  color: #c0392b;
-  font-weight: 800;
-  opacity: 1;
+.event-card--leave {
+  background: #f2f2f2;
+  border-left: 3px solid #bbb;
+  color: #555;
+}
+
+.event-card--leave .leave-person-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.event-card--leave .leave-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.92;
 }
 
 .period-line {
