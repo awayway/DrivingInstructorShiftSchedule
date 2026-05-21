@@ -1062,10 +1062,29 @@ body.dialog-open {
 }
 
 /* —— 更多 · 匯出 PDF dialog —— */
+.export-pdf-section__intro {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #5c5c5c;
+  margin: -4px 0 14px;
+}
+
+.export-pdf-section .dialog-empty-hint {
+  margin-top: 0;
+}
+
 .export-ready-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.export-preview__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5c5c5c;
+  letter-spacing: 0.08em;
+  margin: 0 0 -8px;
 }
 
 .export-preview {
@@ -1097,18 +1116,46 @@ body.dialog-open {
 
 .export-layout-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-size: 0.92rem;
   cursor: pointer;
 }
 
 .export-layout-option + .export-layout-option {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .export-layout-option input {
+  flex-shrink: 0;
+  margin-top: 3px;
   accent-color: #1a1a2e;
+}
+
+.export-layout-option__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.export-layout-option__label {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.export-layout-option__hint {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #6b6b6b;
+}
+
+.export-platform-hint {
+  margin: -6px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #6b6b6b;
+  text-align: center;
 }
 
 .btn-export-pdf {

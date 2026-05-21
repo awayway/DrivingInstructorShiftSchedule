@@ -178,26 +178,47 @@
           <button type="button" class="dialog__close" aria-label="關閉">×</button>
         </header>
         <div class="dialog__body">
-          <p id="export-block-hint" class="dialog-empty-hint">
-            請先以頂部「匯入總排班表」匯入。
-          </p>
-          <div id="export-ready-panel" class="export-ready-panel" hidden>
-            <div id="export-preview" class="export-preview" aria-live="polite"></div>
-            <fieldset class="export-layout-fieldset">
-              <legend class="export-layout-fieldset__legend">版面</legend>
-              <label class="export-layout-option">
-                <input type="radio" name="print-layout" value="mobile" />
-                手機版
-              </label>
-              <label class="export-layout-option">
-                <input type="radio" name="print-layout" value="desktop" />
-                電腦版
-              </label>
-            </fieldset>
-            <button type="button" id="btn-export-pdf" class="btn-primary btn-export-pdf">
-              匯出 PDF
-            </button>
-          </div>
+          <section
+            class="view-settings-section export-pdf-section"
+            aria-labelledby="export-pdf-section-title"
+          >
+            <h3 id="export-pdf-section-title" class="view-settings-section__title">
+              【匯出到 PDF 檔案】
+            </h3>
+            <p class="export-pdf-section__intro">依目前畫面與檢視設定產生 PDF。</p>
+            <p id="export-block-hint" class="dialog-empty-hint">
+              請先以頂部「匯入總排班表」匯入。
+            </p>
+            <div id="export-ready-panel" class="export-ready-panel" hidden>
+              <p class="export-preview__label">匯出內容</p>
+              <div id="export-preview" class="export-preview" aria-live="polite"></div>
+              <fieldset class="export-layout-fieldset">
+                <legend class="export-layout-fieldset__legend">PDF 排版</legend>
+                <label class="export-layout-option">
+                  <input type="radio" name="print-layout" value="mobile" />
+                  <span class="export-layout-option__text">
+                    <span class="export-layout-option__label">窄版</span>
+                    <span class="export-layout-option__hint"
+                      >單欄較窄，適合在手機上閱讀</span
+                    >
+                  </span>
+                </label>
+                <label class="export-layout-option">
+                  <input type="radio" name="print-layout" value="desktop" />
+                  <span class="export-layout-option__text">
+                    <span class="export-layout-option__label">寬版</span>
+                    <span class="export-layout-option__hint"
+                      >表格較寬，適合在電腦或列印閱讀</span
+                    >
+                  </span>
+                </label>
+              </fieldset>
+              <button type="button" id="btn-export-pdf" class="btn-primary btn-export-pdf">
+                匯出 PDF
+              </button>
+              <p id="export-platform-hint" class="export-platform-hint"></p>
+            </div>
+          </section>
         </div>
       </div>
 

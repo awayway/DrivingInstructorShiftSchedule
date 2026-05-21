@@ -743,20 +743,30 @@
   - 當前人員 **`collectMonths` 為空**（主畫面「此選項尚無排班資料」）。
   - 有歷史排程但 **「只顯示本月及未來月份」篩完為空**（主畫面篩選提示；**亦禁用**，不允許僅印 header＋提示文字）。
 
+#### 區塊結構（狀態 A～C 共用）
+
+- 區塊標題：**【匯出到 PDF 檔案】**（`h3`，與檢視設定 section 同套 `view-settings-section__title`）。
+- 副標（固定）：`依目前畫面與檢視設定產生 PDF。`
+- 狀態 A／B：區塊內顯示 `dialog-empty-hint`（禁用原因）；**不**顯示 `#export-ready-panel`。
+- 狀態 C：顯示 `#export-ready-panel`（見下）。
+
 #### 狀態 C：可匯出
 
-1. **匯出摘要**（唯讀，供確認；文案須與 `getExportPreview()` 計算一致）  
+1. **匯出內容**（小標）＋ **匯出摘要**（唯讀；文案須與 `getExportPreview()` 一致）  
    - 人員：`{正規顯示名}`（含「其他」）  
    - 月份：例 `2026年5月～12月（8 個月）`；若含幽靈月可註明「含無資料月份」  
    - 可選一行簡述目前檢視（例：僅本月起、顯示地點／期別、含與上一版差異）——**非**額外勾選，僅描述現狀。  
-2. **版面**（必填其一）  
-   - ○ **手機版**  
-   - ○ **電腦版**  
-   - 預設依 §11.2 自動偵測。  
+2. **PDF 排版**（必填其一；`value` 仍為 `mobile`／`desktop`）  
+   - ○ **窄版** — 單欄較窄，適合在手機上閱讀  
+   - ○ **寬版** — 表格較寬，適合在電腦或列印閱讀  
+   - 預設依 §11.2 `detectDefaultPrintLayout()` 自動偵測。  
 3. 主按鈕 **匯出 PDF** → 關閉 dialog → `runPrintExport(layout, sources, { filename })`：  
    - **非 iOS**：隱藏 iframe、複製 DOM、`data-print-layout` → `window.print()`；`afterprint` 移除 iframe。  
    - **iOS**：主文件 mount + `html2canvas` + `jsPDF`；`filename`＝`buildIosExportPdfFilename(人名)`（§11.2 #3）。  
-4. 結束後主畫面 **不** 殘留 `data-print-layout`／mount（若曾暫改 `document.title` 亦還原；本規格**不**要求改 title）。
+4. 按鈕下方 **平台說明**（`#export-platform-hint`，`updateMoreDialog()` 依 `isIosExportClient()` 設定）：  
+   - iOS／iPadOS：`在此裝置上會直接下載 PDF 檔案。`  
+   - 其他：`會開啟列印視窗，請選擇「另存為 PDF」或類似選項。`  
+5. 結束後主畫面 **不** 殘留 `data-print-layout`／mount（若曾暫改 `document.title` 亦還原；本規格**不**要求改 title）。
 
 **不提供**：匯出前檔名輸入、「含圖例」「含頁首與匯出日期」等 checkbox。
 

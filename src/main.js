@@ -18,6 +18,7 @@ import {
   detectDefaultPrintLayout,
   getExportBlockReason,
   getExportPreview,
+  isIosExportClient,
   runPrintExport,
 } from './exportPdf.js';
 import { findSameProjectPeers } from './findSameProjectPeers.js';
@@ -54,6 +55,7 @@ const dialogMore = document.getElementById('dialog-more');
 const exportBlockHint = document.getElementById('export-block-hint');
 const exportReadyPanel = document.getElementById('export-ready-panel');
 const exportPreviewEl = document.getElementById('export-preview');
+const exportPlatformHint = document.getElementById('export-platform-hint');
 const btnExportPdf = document.getElementById('btn-export-pdf');
 const appHeader = document.querySelector('.app-header');
 
@@ -190,6 +192,11 @@ function updateMoreDialog() {
   exportBlockHint.hidden = true;
   exportReadyPanel.hidden = false;
   btnExportPdf.disabled = false;
+  if (exportPlatformHint) {
+    exportPlatformHint.textContent = isIosExportClient()
+      ? '在此裝置上會直接下載 PDF 檔案。'
+      : '會開啟列印視窗，請選擇「另存為 PDF」或類似選項。';
+  }
   const preview = getExportPreview(ctx);
   if (exportPreviewEl && preview) {
     exportPreviewEl.innerHTML = '';
